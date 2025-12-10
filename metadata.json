@@ -1,0 +1,5 @@
+{
+  "name": "CricScore Pro",
+  "description": "A professional-grade cricket scoring application featuring ball-by-ball tracking, tournament management, and real-time statistics visualization.",
+  "requestFramePermissions": []
+}
