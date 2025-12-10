@@ -17,6 +17,11 @@ export const TeamManagement = () => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerRole, setNewPlayerRole] = useState<PlayerRole>('ALL_ROUNDER');
 
+  // Delete Modal State
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean, teamId: string | null, teamName: string }>({
+    show: false, teamId: null, teamName: ''
+  });
+
   const addPlayer = () => {
     if (!newPlayerName.trim()) return;
     const player: Player = {
@@ -42,18 +47,25 @@ export const TeamManagement = () => {
     setCreating(true);
   };
 
-  const deleteEditingTeam = () => {
-    if (window.confirm("Are you sure you want to delete this team? This action cannot be undone.")) {
-      if (editingTeamId) {
-        dispatch({ type: 'DELETE_TEAM', payload: { teamId: editingTeamId } });
-        setCreating(false);
-        setEditingTeamId(null);
-        // Reset form
-        setTeamName('');
-        setShortName('');
-        setPlayers([]);
+  const handleDeleteClick = (teamId: string, name: string) => {
+    setDeleteModal({ show: true, teamId, teamName: name });
+  };
+
+  const confirmDelete = () => {
+      if (deleteModal.teamId) {
+        dispatch({ type: 'DELETE_TEAM', payload: { teamId: deleteModal.teamId } });
+        
+        // If we were editing this team, close the editor
+        if (editingTeamId === deleteModal.teamId) {
+            setCreating(false);
+            setEditingTeamId(null);
+            setTeamName('');
+            setShortName('');
+            setPlayers([]);
+        }
+        
+        setDeleteModal({ show: false, teamId: null, teamName: '' });
       }
-    }
   };
 
   const saveTeam = () => {
@@ -93,7 +105,7 @@ export const TeamManagement = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6">
+    <div className="max-w-6xl mx-auto p-4 md:p-6 relative">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 mb-8">
@@ -203,7 +215,7 @@ export const TeamManagement = () => {
             {editingTeamId ? (
                 <button 
                     type="button"
-                    onClick={deleteEditingTeam}
+                    onClick={() => handleDeleteClick(editingTeamId, teamName)}
                     className="w-full md:w-auto flex items-center justify-center gap-2 text-red-500 hover:text-white hover:bg-red-500 px-4 py-3 md:py-2 rounded-lg transition-colors font-bold border border-red-200 hover:border-red-500 bg-red-50/50"
                 >
                     <Trash2 size={18} /> Delete Team
@@ -275,8 +287,8 @@ export const TeamManagement = () => {
                    </div>
                 </div>
 
-                {/* Edit Action - Visible on Hover */}
-                <div className="absolute top-4 right-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {/* Edit & Delete Actions - Visible on Hover */}
+                <div className="absolute top-4 right-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
                    <button 
                     type="button"
                     onClick={(e) => handleEdit(e, team)}
@@ -284,6 +296,17 @@ export const TeamManagement = () => {
                     title="Edit Team"
                    >
                      <Edit2 size={16} />
+                   </button>
+                   <button 
+                    type="button"
+                    onClick={(e) => {
+                       e.stopPropagation();
+                       handleDeleteClick(team.id, team.name);
+                    }}
+                    className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm cursor-pointer"
+                    title="Delete Team"
+                   >
+                     <Trash2 size={16} />
                    </button>
                 </div>
 
@@ -297,6 +320,38 @@ export const TeamManagement = () => {
               <p className="text-gray-500 font-medium">No teams found. Create your first team to get started!</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm animate-pop p-6">
+                <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+                        <Trash2 size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Team?</h3>
+                    <p className="text-gray-500 mb-6 text-sm">
+                        Are you sure you want to delete <span className="font-bold text-gray-800">{deleteModal.teamName}</span>? <br/>This action cannot be undone.
+                    </p>
+                    
+                    <div className="flex gap-3 w-full">
+                        <button 
+                            onClick={() => setDeleteModal({ show: false, teamId: null, teamName: '' })}
+                            className="flex-1 py-3 text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={confirmDelete}
+                            className="flex-1 py-3 text-white font-bold bg-red-600 hover:bg-red-700 rounded-lg shadow-md hover:shadow-lg transition-all"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
       )}
     </div>

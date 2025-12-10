@@ -477,10 +477,46 @@ export const ScoringProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
 
   useEffect(() => {
-    const teams = StorageService.getTeams();
+    let teams = StorageService.getTeams();
     const matches = StorageService.getMatches();
     const tournaments = StorageService.getTournaments();
     const activeMatchId = StorageService.getActiveMatchId();
+
+    if (teams.length === 0) {
+      const defaultTeams: Team[] = [
+        {
+          id: 'team_ind_default',
+          name: 'India',
+          shortName: 'IND',
+          logoColor: 'bg-blue-100 text-blue-700',
+          players: [
+            { id: 'ind_1', name: 'Rohit Sharma', role: 'BATSMAN' },
+            { id: 'ind_2', name: 'Virat Kohli', role: 'BATSMAN' },
+            { id: 'ind_3', name: 'Hardik Pandya', role: 'ALL_ROUNDER' },
+            { id: 'ind_4', name: 'Ravindra Jadeja', role: 'ALL_ROUNDER' },
+            { id: 'ind_5', name: 'Jasprit Bumrah', role: 'BOWLER' }
+          ]
+        },
+        {
+          id: 'team_pak_default',
+          name: 'Pakistan',
+          shortName: 'PAK',
+          logoColor: 'bg-emerald-100 text-emerald-700',
+          players: [
+            { id: 'pak_1', name: 'Babar Azam', role: 'BATSMAN' },
+            { id: 'pak_2', name: 'Mohammad Rizwan', role: 'WICKET_KEEPER' },
+            { id: 'pak_3', name: 'Shadab Khan', role: 'ALL_ROUNDER' },
+            { id: 'pak_4', name: 'Shaheen Afridi', role: 'BOWLER' },
+            { id: 'pak_5', name: 'Naseem Shah', role: 'BOWLER' }
+          ]
+        }
+      ];
+      
+      // Save defaults so they persist
+      defaultTeams.forEach(t => StorageService.saveTeam(t));
+      teams = defaultTeams;
+    }
+
     dispatch({ type: 'LOAD_DATA', payload: { teams, matches, tournaments, activeMatchId } });
   }, []);
 
