@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useScoring } from '../context/ScoringContext';
 import { Match, WicketType } from '../types';
 import * as GameLogic from '../services/gameLogic';
-import { ArrowLeft, User, AlertTriangle, RotateCcw, TrendingUp, Target } from 'lucide-react';
+import { ArrowLeft, User, AlertTriangle, RotateCcw, TrendingUp, Target, Radio } from 'lucide-react';
 
 export const LiveScoring = () => {
   const { id } = useParams<{ id: string }>();
@@ -255,6 +255,10 @@ export const LiveScoring = () => {
       }
   };
 
+  const handleOpenBroadcast = () => {
+      window.open(`#/broadcast/${match.id}`, '_blank');
+  };
+
   // Safe Accessors
   const striker = battingTeam.players.find(p => p.id === inning.currentStrikerId);
   const nonStriker = inning.currentNonStrikerId ? battingTeam.players.find(p => p.id === inning.currentNonStrikerId) : null;
@@ -306,7 +310,16 @@ export const LiveScoring = () => {
             <button onClick={() => navigate('/')} className="text-emerald-300 hover:text-white flex items-center gap-1">
                 <ArrowLeft size={18}/> <span className="text-xs">Back</span>
             </button>
-            <h2 className="text-xs md:text-sm font-medium opacity-80 truncate max-w-[150px]">{match.name}</h2>
+            <div className="flex items-center gap-2">
+                <h2 className="text-xs md:text-sm font-medium opacity-80 truncate max-w-[150px]">{match.name}</h2>
+                <button 
+                    onClick={handleOpenBroadcast}
+                    title="Open Broadcast View"
+                    className="p-1 bg-emerald-800 rounded hover:bg-emerald-700 transition-colors"
+                >
+                    <Radio size={14} className="text-yellow-400" />
+                </button>
+            </div>
             <div className="w-5"></div>
         </div>
         <div className="flex justify-between items-end">

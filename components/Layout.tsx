@@ -1,11 +1,28 @@
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Trophy, Activity, Users, Home as HomeIcon, Menu, X, Table2 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Trophy, Activity, Users, Home as HomeIcon, Menu, X, Table2, LogOut, User as UserIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  // Broadcast View should be full screen without layout
+  if (location.pathname.startsWith('/broadcast/')) {
+      return <>{children}</>;
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <HomeIcon size={20} /> },
@@ -49,7 +66,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               to={item.path}
               onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                location.pathname.startsWith(item.path) && item.path !== '/' || location.pathname === item.path
+                (location.pathname.startsWith(item.path) && item.path !== '/') || location.pathname === item.path
                   ? 'bg-emerald-700 text-white font-medium shadow-inner' 
                   : 'hover:bg-emerald-800 hover:text-white'
               }`}
@@ -60,8 +77,30 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-emerald-800 text-xs text-emerald-400 text-center">
-          v1.1.0 &copy; 2024
+        {/* User Profile & Logout Section */}
+        <div className="p-4 border-t border-emerald-800 bg-emerald-950/30">
+          <div className="flex items-center gap-3 mb-3 px-2">
+            <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center text-emerald-100 overflow-hidden">
+               <UserIcon size={16} />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs text-emerald-400 font-medium">Welcome,</p>
+              <p className="text-xs text-white font-bold truncate" title={user?.email || ''}>
+                  {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white py-2 rounded-lg text-sm font-medium transition-colors border border-emerald-700"
+          >
+            <LogOut size={16} /> Logout
+          </button>
+        </div>
+
+        <div className="p-2 border-t border-emerald-800 text-[10px] text-emerald-400 text-center">
+          v1.2.0 &copy; 2024
         </div>
       </aside>
 
