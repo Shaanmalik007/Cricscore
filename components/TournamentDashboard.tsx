@@ -1,13 +1,14 @@
-
 import React, { useState, useMemo } from 'react';
 import { useScoring } from '../context/ScoringContext';
+import { useAuth } from '../context/AuthContext';
 import { Tournament, Team, PointsTableEntry, TournamentTeamEntry } from '../types';
 import { calculatePointsTable, calculatePlayerStats } from '../services/gameLogic';
-import { Plus, Trophy, Calendar, Users, ChevronRight, User } from 'lucide-react';
+import { Plus, Trophy, Calendar, Users, ChevronRight, User, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const TournamentDashboard = () => {
     const { state, dispatch } = useScoring();
+    const { membership, setShowUpgradeModal } = useAuth();
     const [view, setView] = useState<'LIST' | 'CREATE' | 'DETAIL'>('LIST');
     const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
 
@@ -15,7 +16,7 @@ export const TournamentDashboard = () => {
     const [form, setForm] = useState({ name: '', startDate: '', endDate: '', format: 'T20', overs: 20, groups: 'Group A,Group B' });
     const [selectedTeams, setSelectedTeams] = useState<Record<string, string>>({}); // teamId -> groupName
 
-    const activeTournament = state.tournaments.find(t => t.id === activeTournamentId);
+    const activeTournament = (state.tournaments || []).find(t => t.id === activeTournamentId);
     
     // --- CREATE LOGIC ---
     const handleCreate = () => {
@@ -55,13 +56,21 @@ export const TournamentDashboard = () => {
     // --- DETAIL VIEW HELPERS ---
     const tournamentData = useMemo(() => {
         if (!activeTournament) return null;
-        const matches = state.matches.filter(m => m.tournamentId === activeTournament.id);
+        const matches = (state.matches || []).filter(m => m.tournamentId === activeTournament.id);
         const pointsTable = calculatePointsTable(activeTournament, matches, state.teams);
         const stats = calculatePlayerStats(matches, state.teams);
         return { matches, pointsTable, stats };
     }, [activeTournament, state.matches, state.teams]);
 
     const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'POINTS' | 'FIXTURES' | 'STATS'>('POINTS');
+
+    const handleCreateClick = () => {
+        if (membership === 'member') {
+            setView('CREATE');
+        } else {
+            setShowUpgradeModal(true);
+        }
+    }
 
     // --- RENDER ---
 
@@ -131,10 +140,10 @@ export const TournamentDashboard = () => {
                     <div className="border-t pt-6">
                         <h3 className="font-bold text-gray-800 mb-4">Add Teams to Groups</h3>
                         <div className="space-y-6">
-                            {form.groups.split(',').filter(g => g.trim()).map(group => (
+                            {(form.groups || "").split(',').filter(g => g.trim()).map(group => (
                                 <div key={group} className="border border-gray-200 p-4 rounded-lg bg-gray-50/50">
                                     <h4 className="font-bold text-emerald-700 mb-3 text-sm uppercase tracking-wide">{group}</h4>
-                                    {state.teams.length === 0 ? (
+                                    {(state.teams || []).length === 0 ? (
                                         <p className="text-sm text-gray-400 italic">No teams available. Create teams first.</p>
                                     ) : (
                                         <div className="flex flex-wrap gap-2">
@@ -187,7 +196,7 @@ export const TournamentDashboard = () => {
                          <p className="text-gray-500">{activeTournament.format} • {new Date(activeTournament.startDate).toLocaleDateString()} - {activeTournament.endDate ? new Date(activeTournament.endDate).toLocaleDateString() : 'Ongoing'}</p>
                      </div>
                      <div className="text-right">
-                         <div className="text-2xl font-bold text-emerald-600">{activeTournament.teams.length} Teams</div>
+                         <div className="text-2xl font-bold text-emerald-600">{(activeTournament.teams || []).length} Teams</div>
                      </div>
                  </div>
 
@@ -207,7 +216,7 @@ export const TournamentDashboard = () => {
                  {/* Tab Content */}
                  {activeTab === 'POINTS' && (
                      <div className="grid gap-8">
-                         {Object.keys(tournamentData.pointsTable).map(group => (
+                         {Object.keys(tournamentData.pointsTable || {}).map(group => (
                              <div key={group} className="bg-white rounded-lg shadow overflow-hidden">
                                  <div className="bg-gray-50 px-4 py-3 border-b font-bold text-gray-700">{group}</div>
                                  <table className="w-full text-sm text-left">
@@ -252,7 +261,7 @@ export const TournamentDashboard = () => {
                                  <Trophy size={16}/> Most Runs
                              </div>
                              <div className="divide-y">
-                                 {tournamentData.stats.batsmen.slice(0, 5).map((p, i) => (
+                                 {(tournamentData.stats?.batsmen || []).slice(0, 5).map((p, i) => (
                                      <div key={p.playerId} className="p-3 flex justify-between items-center">
                                          <div className="flex items-center gap-3">
                                              <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold">{i+1}</div>
@@ -275,7 +284,7 @@ export const TournamentDashboard = () => {
                                  <Trophy size={16}/> Most Wickets
                              </div>
                              <div className="divide-y">
-                                 {tournamentData.stats.bowlers.slice(0, 5).map((p, i) => (
+                                 {(tournamentData.stats?.bowlers || []).slice(0, 5).map((p, i) => (
                                      <div key={p.playerId} className="p-3 flex justify-between items-center">
                                          <div className="flex items-center gap-3">
                                              <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold">{i+1}</div>
@@ -297,7 +306,7 @@ export const TournamentDashboard = () => {
 
                  {activeTab === 'FIXTURES' && (
                      <div className="space-y-3">
-                         {tournamentData.matches.length === 0 ? (
+                         {(tournamentData.matches || []).length === 0 ? (
                              <div className="p-8 text-center text-gray-500 italic">No matches scheduled yet.</div>
                          ) : (
                              tournamentData.matches.map(m => (
@@ -321,13 +330,17 @@ export const TournamentDashboard = () => {
         <div className="max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Tournaments</h2>
-                <button onClick={() => setView('CREATE')} className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow hover:bg-emerald-700 transition-colors">
-                    <Plus size={18}/> New Tournament
+                <button 
+                    onClick={handleCreateClick} 
+                    className={`${membership === 'member' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-400 hover:bg-gray-500'} text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow transition-colors`}
+                >
+                    {membership === 'member' ? <Plus size={18}/> : <Lock size={18} />}
+                    New Tournament
                 </button>
             </div>
 
             <div className="grid gap-4">
-                {state.tournaments.length === 0 ? (
+                {(state.tournaments || []).length === 0 ? (
                     <div className="bg-white p-12 rounded-xl text-center text-gray-500 border border-dashed">
                         No tournaments found. Create one to get started!
                     </div>
@@ -338,7 +351,7 @@ export const TournamentDashboard = () => {
                                 <h3 className="text-xl font-bold text-gray-800">{t.name}</h3>
                                 <div className="text-sm text-gray-500 flex gap-4 mt-1">
                                     <span className="flex items-center gap-1"><Calendar size={14}/> {new Date(t.startDate).toLocaleDateString()}</span>
-                                    <span className="flex items-center gap-1"><Users size={14}/> {t.teams.length} Teams</span>
+                                    <span className="flex items-center gap-1"><Users size={14}/> {(t.teams || []).length} Teams</span>
                                     <span className="bg-gray-100 px-2 rounded text-xs font-semibold self-center">{t.format}</span>
                                 </div>
                             </div>

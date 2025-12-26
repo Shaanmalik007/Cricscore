@@ -76,8 +76,8 @@ export const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-emerald-900 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-pop">
+    <div className="min-h-screen bg-[#064e3b] flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-pop border border-white/20">
         <div className="p-8">
           <div className="text-center mb-8">
             <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-4 ${view === 'SUCCESS' ? 'bg-green-100 text-green-600' : 'bg-emerald-100 text-emerald-600'}`}>
@@ -115,7 +115,7 @@ export const Login = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white text-slate-900"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -130,7 +130,7 @@ export const Login = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white text-slate-900"
                     placeholder="••••••••"
                   />
                 </div>
@@ -149,7 +149,7 @@ export const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full bg-[#00966d] text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg"
               >
                 {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
               </button>
@@ -168,7 +168,7 @@ export const Login = () => {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white text-slate-900"
                       placeholder="you@example.com"
                     />
                   </div>

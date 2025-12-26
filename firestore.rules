@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper: Check if user is the creator of the match
+    // For existing documents (resource)
+    function isMatchOwner() {
+      return isSignedIn() && resource.data.createdBy == request.auth.uid;
+    }
+    
+    // For new/incoming documents (request.resource)
+    function willBeMatchOwner() {
+      return isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+    }
+
+    // User profiles and history
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      
+      match /Teams/{teamId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+      
+      match /Matches/{matchId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // Global Matches collection
+    match /matches/{matchId} {
+      // Allow read if match is public OR user is the owner
+      // exists() check prevents errors on first read/write
+      allow read: if (resource != null && resource.data.isPublic == true) || (resource != null && resource.data.createdBy == request.auth.uid);
+      
+      // Allow creation if the creator ID matches the authenticated user
+      allow create: if isSignedIn() && willBeMatchOwner();
+      
+      // Allow updates if user is the owner OR if it's a public match and they only update cheers
+      allow update: if (resource != null && resource.data.createdBy == request.auth.uid) || (
+        resource != null && resource.data.isPublic == true && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cheers'])
+      );
+      
+      allow delete: if resource != null && resource.data.createdBy == request.auth.uid;
+
+      // Balls subcollection
+      match /balls/{ballId} {
+        // Full path get() for parent match check
+        function getParentMatch() {
+          return get(/databases/$(database)/documents/matches/$(matchId)).data;
+        }
+
+        allow read: if getParentMatch().isPublic == true || getParentMatch().createdBy == request.auth.uid;
+        
+        // Scorer can add balls
+        allow create: if isSignedIn() && getParentMatch().createdBy == request.auth.uid;
+        
+        // No updates to balls (standard cricket logic), but allow delete for undo
+        allow delete: if isSignedIn() && getParentMatch().createdBy == request.auth.uid;
+      }
+    }
+  }
+}

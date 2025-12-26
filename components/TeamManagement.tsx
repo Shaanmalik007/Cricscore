@@ -1,11 +1,12 @@
-
 import React, { useState } from 'react';
 import { useScoring } from '../context/ScoringContext';
+import { useAuth } from '../context/AuthContext';
 import { Player, Team, PlayerRole } from '../types';
-import { Plus, Trash2, User, Shield, Edit2 } from 'lucide-react';
+import { Plus, Trash2, User, Shield, Edit2, Lock, X } from 'lucide-react';
 
 export const TeamManagement = () => {
   const { state, dispatch } = useScoring();
+  const { membership, setShowUpgradeModal } = useAuth();
   const [isCreating, setCreating] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   
@@ -22,6 +23,14 @@ export const TeamManagement = () => {
     show: false, teamId: null, teamName: ''
   });
 
+  const checkPermission = () => {
+      if (membership !== 'member') {
+          setShowUpgradeModal(true);
+          return false;
+      }
+      return true;
+  }
+
   const addPlayer = () => {
     if (!newPlayerName.trim()) return;
     const player: Player = {
@@ -29,47 +38,43 @@ export const TeamManagement = () => {
       name: newPlayerName,
       role: newPlayerRole
     };
-    setPlayers([...players, player]);
+    setPlayers(prev => [...(prev || []), player]);
     setNewPlayerName('');
   };
 
   const removePlayer = (id: string) => {
-    setPlayers(players.filter(p => p.id !== id));
+    setPlayers(prev => (prev || []).filter(p => p.id !== id));
   };
 
   const handleEdit = (e: React.MouseEvent, team: Team) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!checkPermission()) return;
+
     setTeamName(team.name);
     setShortName(team.shortName);
-    setPlayers(team.players);
+    setPlayers(team.players || []);
     setEditingTeamId(team.id);
     setCreating(true);
   };
 
   const handleDeleteClick = (teamId: string, name: string) => {
+    if (!checkPermission()) return;
     setDeleteModal({ show: true, teamId, teamName: name });
   };
 
   const confirmDelete = () => {
       if (deleteModal.teamId) {
         dispatch({ type: 'DELETE_TEAM', payload: { teamId: deleteModal.teamId } });
-        
-        // If we were editing this team, close the editor
         if (editingTeamId === deleteModal.teamId) {
-            setCreating(false);
-            setEditingTeamId(null);
-            setTeamName('');
-            setShortName('');
-            setPlayers([]);
+            cancelCreate();
         }
-        
         setDeleteModal({ show: false, teamId: null, teamName: '' });
       }
   };
 
   const saveTeam = () => {
-    if (!teamName || !shortName || players.length === 0) {
+    if (!teamName || !shortName || (players || []).length === 0) {
       alert("Please fill all details and add at least one player.");
       return;
     }
@@ -79,7 +84,7 @@ export const TeamManagement = () => {
       name: teamName,
       shortName: shortName.toUpperCase(),
       players: players,
-      logoColor: 'bg-emerald-500' // Default
+      logoColor: 'bg-emerald-500' 
     };
 
     if (editingTeamId) {
@@ -88,12 +93,7 @@ export const TeamManagement = () => {
       dispatch({ type: 'CREATE_TEAM', payload: teamData });
     }
 
-    setCreating(false);
-    setEditingTeamId(null);
-    // Reset form
-    setTeamName('');
-    setShortName('');
-    setPlayers([]);
+    cancelCreate();
   };
 
   const cancelCreate = () => {
@@ -105,251 +105,266 @@ export const TeamManagement = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6 relative">
+    <div className="max-w-6xl mx-auto p-4 md:p-6 animate-slide-up">
       
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 mb-8">
-        <div className="border-2 border-blue-400 px-6 py-4 rounded-lg bg-white shadow-sm flex-1 md:flex-none">
-           <h2 className="text-xl md:text-2xl font-bold text-gray-900">Team Management</h2>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+        <div>
+           <h2 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight">Team Management</h2>
+           <p className="text-slate-400 font-medium text-lg mt-1">Organize your squads and players.</p>
         </div>
         {!isCreating && (
           <button 
             type="button"
-            onClick={() => setCreating(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 font-bold shadow transition-colors"
+            onClick={() => {
+                if(checkPermission()) setCreating(true);
+            }}
+            className="bg-[#A7D1C4] hover:bg-[#96c2b4] text-[#064e3b] px-10 py-4 rounded-[1.25rem] flex items-center justify-center gap-3 font-black shadow-lg transition-all transform active:scale-95"
           >
-            <Plus size={20} /> Create Team
+             <Plus size={24} strokeWidth={3} /> 
+             <span className="text-lg">Create New Team</span>
           </button>
         )}
       </div>
 
       {isCreating ? (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 md:p-8 animate-fade-in max-w-3xl mx-auto">
-          <h3 className="text-xl font-bold mb-6 text-gray-800 border-b pb-4">{editingTeamId ? 'Edit Team' : 'New Team Details'}</h3>
+        <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden animate-pop max-w-3xl mx-auto">
+          <div className="bg-slate-50 px-10 py-8 border-b border-slate-100 flex justify-between items-center">
+             <h3 className="text-2xl font-black text-slate-800">{editingTeamId ? 'Edit Team Details' : 'Create New Team'}</h3>
+             <button onClick={cancelCreate} className="p-3 hover:bg-slate-200 rounded-full transition-colors"><X size={28} className="text-slate-500" /></button>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Team Name</label>
-              <input 
-                type="text" 
-                value={teamName}
-                onChange={e => setTeamName(e.target.value)}
-                placeholder="e.g. Mumbai Indians"
-                className="w-full bg-gray-50 text-gray-900 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Short Code (3 chars)</label>
-              <input 
-                type="text" 
-                value={shortName}
-                onChange={e => setShortName(e.target.value.toUpperCase())}
-                maxLength={3}
-                placeholder="e.g. MI"
-                className="w-full bg-gray-50 text-gray-900 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none uppercase font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Squad</h3>
-            <div className="flex flex-col md:flex-row gap-3 mb-4">
-              <input 
-                type="text" 
-                value={newPlayerName}
-                onChange={e => setNewPlayerName(e.target.value)}
-                placeholder="Player Name"
-                className="flex-1 bg-white text-gray-900 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none"
-                onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-              />
-              <select 
-                value={newPlayerRole}
-                onChange={(e) => setNewPlayerRole(e.target.value as PlayerRole)}
-                className="border border-gray-300 rounded-lg p-3 bg-white text-gray-800 focus:ring-2 focus:ring-emerald-500 outline-none"
-              >
-                <option value="BATSMAN">Batsman</option>
-                <option value="BOWLER">Bowler</option>
-                <option value="ALL_ROUNDER">All Rounder</option>
-                <option value="WICKET_KEEPER">Wicket Keeper</option>
-              </select>
-              <button 
-                type="button"
-                onClick={addPlayer}
-                className="bg-gray-800 text-white px-6 py-3 rounded-lg hover:bg-gray-900 font-bold"
-              >
-                Add
-              </button>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 min-h-[150px]">
-              {players.length === 0 ? (
-                <p className="text-gray-400 text-center italic py-4">No players added yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {players.map(player => (
-                    <div key={player.id} className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-lg shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                          <User size={14} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-800 text-sm">{player.name}</p>
-                          <p className="text-xs text-gray-500 uppercase">{player.role.replace('_', ' ')}</p>
-                        </div>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => removePlayer(player.id)} 
-                        className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+          <div className="p-10 space-y-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Full Team Name</label>
+                <input 
+                    type="text" 
+                    value={teamName}
+                    onChange={e => setTeamName(e.target.value)}
+                    placeholder="e.g. Royal Challengers"
+                    className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-2xl p-5 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-lg"
+                />
                 </div>
-              )}
+                <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Short Code (3 chars)</label>
+                <input 
+                    type="text" 
+                    value={shortName}
+                    onChange={e => setShortName(e.target.value.toUpperCase())}
+                    maxLength={3}
+                    placeholder="RCB"
+                    className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-2xl p-5 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none uppercase font-mono font-bold tracking-[0.2em] text-lg"
+                />
+                </div>
             </div>
-          </div>
 
-          <div className="flex flex-col-reverse md:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-100 mt-6">
-            {editingTeamId ? (
-                <button 
+            <div>
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Squad List</h3>
+                <div className="flex flex-col md:flex-row gap-5 mb-10 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                    <input 
+                        type="text" 
+                        value={newPlayerName}
+                        onChange={e => setNewPlayerName(e.target.value)}
+                        placeholder="Player Name"
+                        className="flex-1 bg-white text-slate-900 border border-slate-200 rounded-2xl p-5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg"
+                        onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
+                    />
+                    <select 
+                        value={newPlayerRole}
+                        onChange={(e) => setNewPlayerRole(e.target.value as PlayerRole)}
+                        className="border border-slate-200 rounded-2xl p-5 bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none font-black text-sm uppercase tracking-wide"
+                    >
+                        <option value="BATSMAN">Batsman</option>
+                        <option value="BOWLER">Bowler</option>
+                        <option value="ALL_ROUNDER">All Rounder</option>
+                        <option value="WICKET_KEEPER">Wicket Keeper</option>
+                    </select>
+                    <button 
+                        type="button"
+                        onClick={addPlayer}
+                        className="bg-slate-900 text-white px-12 py-5 rounded-2xl hover:bg-black font-black transition-all shadow-xl active:scale-95 text-sm uppercase tracking-widest"
+                    >
+                        Add Player
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-h-[400px] overflow-y-auto no-scrollbar pr-2">
+                {(players || []).length === 0 ? (
+                    <div className="col-span-full py-20 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                        <p className="text-slate-400 text-lg font-bold italic">No players added to the squad yet.</p>
+                    </div>
+                ) : (
+                    players.map(player => (
+                        <div key={player.id} className="flex justify-between items-center bg-white border border-slate-100 p-6 rounded-[1.5rem] shadow-sm hover:border-emerald-500 transition-all group">
+                        <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                            <User size={26} />
+                            </div>
+                            <div>
+                            <p className="font-black text-slate-800 text-lg">{player.name}</p>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-0.5">{player.role.replace('_', ' ')}</p>
+                            </div>
+                        </div>
+                        <button 
+                            type="button"
+                            onClick={() => removePlayer(player.id)} 
+                            className="text-slate-300 hover:text-red-500 p-3.5 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                            <Trash2 size={24} />
+                        </button>
+                        </div>
+                    ))
+                )}
+                </div>
+            </div>
+
+            <div className="flex flex-col-reverse md:flex-row justify-between items-center gap-5 pt-12 border-t border-slate-100">
+                {editingTeamId ? (
+                    <button 
+                        type="button"
+                        onClick={() => handleDeleteClick(editingTeamId, teamName)}
+                        className="w-full md:w-auto flex items-center justify-center gap-3 text-red-500 hover:bg-red-50 px-10 py-5 rounded-2xl transition-all font-black uppercase tracking-widest text-sm"
+                    >
+                        <Trash2 size={22} /> Delete Team
+                    </button>
+                ) : (
+                    <div />
+                )}
+                
+                <div className="flex gap-5 w-full md:w-auto">
+                    <button 
                     type="button"
-                    onClick={() => handleDeleteClick(editingTeamId, teamName)}
-                    className="w-full md:w-auto flex items-center justify-center gap-2 text-red-500 hover:text-white hover:bg-red-500 px-4 py-3 md:py-2 rounded-lg transition-colors font-bold border border-red-200 hover:border-red-500 bg-red-50/50"
-                >
-                    <Trash2 size={18} /> Delete Team
-                </button>
-            ) : (
-                <div className="hidden md:block" />
-            )}
-            
-            <div className="flex gap-3 w-full md:w-auto">
-                <button 
-                  type="button"
-                  onClick={cancelCreate}
-                  className="flex-1 md:flex-none px-6 py-3 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium border border-gray-200 text-center"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button"
-                  onClick={saveTeam}
-                  className="flex-1 md:flex-none px-8 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow transition-colors font-bold text-center"
-                >
-                  {editingTeamId ? 'Update Team' : 'Save Team'}
-                </button>
+                    onClick={cancelCreate}
+                    className="flex-1 md:flex-none px-12 py-5 text-slate-500 hover:bg-slate-50 rounded-2xl font-black uppercase tracking-widest text-sm transition-all"
+                    >
+                    Cancel
+                    </button>
+                    <button 
+                    type="button"
+                    onClick={saveTeam}
+                    className="flex-1 md:flex-none px-16 py-5 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 shadow-2xl transition-all font-black uppercase tracking-widest text-sm transform active:scale-95"
+                    >
+                    {editingTeamId ? 'Update Changes' : 'Save Team'}
+                    </button>
+                </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {state.teams.map((team, index) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {/* "Add team" logic: Render the + card first if no teams, or as first item */}
+          <div 
+             onClick={() => { if(checkPermission()) setCreating(true); }}
+             className="bg-white border-2 border-dashed border-slate-200 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition-all duration-300 min-h-[300px]"
+          >
+             <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-all mb-6">
+                <Plus size={40} />
+             </div>
+             <h3 className="text-2xl font-black text-slate-800 tracking-tight group-hover:text-emerald-900 transition-colors">Add team</h3>
+             <p className="text-slate-400 font-bold mt-2 text-sm">Tap to create your squad</p>
+          </div>
+
+          {(state.teams || []).map((team, index) => {
             const colors = [
-              { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-              { bg: 'bg-blue-100', text: 'text-blue-700' },
-              { bg: 'bg-purple-100', text: 'text-purple-700' },
-              { bg: 'bg-orange-100', text: 'text-orange-700' }
+              'bg-[#ADC4F0]', 
+              'bg-[#E9ADF0]', 
+              'bg-[#F0C9AD]', 
+              'bg-[#F0ADAD]'  
             ];
             const color = colors[index % colors.length];
             
             return (
-              <div key={team.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative overflow-hidden group hover:shadow-md transition-shadow">
+              <div key={team.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-10 relative overflow-hidden group hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
                 
-                {/* Watermark */}
-                <div className="absolute top-4 right-4 text-7xl font-black text-gray-50 opacity-50 select-none pointer-events-none z-0">
-                  {team.shortName}
+                <div className="flex items-start justify-between mb-10">
+                  <div className={`w-20 h-20 rounded-[1.5rem] ${color} flex items-center justify-center text-2xl font-black text-slate-700 shadow-inner transform transition-transform group-hover:scale-110 duration-500`}>
+                    {team.shortName || (team.name?.substring(0, 3) || '???').toUpperCase()}
+                  </div>
+                  
+                  <div className="flex gap-3">
+                      {membership === 'member' ? (
+                          <>
+                            <button 
+                                type="button"
+                                onClick={(e) => handleEdit(e, team)}
+                                className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm"
+                                title="Edit Team"
+                            >
+                                <Edit2 size={20} />
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteClick(team.id, team.name);
+                                }}
+                                className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-all shadow-sm"
+                                title="Delete Team"
+                            >
+                                <Trash2 size={20} />
+                            </button>
+                          </>
+                      ) : (
+                          <div className="w-12 h-12 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center" title="Premium Feature">
+                              <Lock size={20} />
+                          </div>
+                      )}
+                  </div>
                 </div>
 
-                <div className="flex items-start gap-4 mb-6 relative z-10 pr-20">
-                  <div className={`w-14 h-14 rounded-full ${color.bg} ${color.text} flex items-center justify-center text-xl font-bold shrink-0`}>
-                    {team.shortName[0]}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 leading-tight mb-1">{team.name}</h3>
-                    <p className="text-gray-500 text-sm font-medium">{team.players.length} Players</p>
-                  </div>
+                <div>
+                    <h3 className="text-3xl font-black text-slate-800 leading-tight mb-2 truncate group-hover:text-emerald-900 transition-colors">
+                        {team.name || 'Unnamed Team'}
+                    </h3>
+                    <p className="text-slate-400 text-sm font-black uppercase tracking-widest">
+                        {(team.players || []).length} PLAYERS IN SQUAD
+                    </p>
                 </div>
                 
-                <div className="border-t border-gray-100 pt-4 relative z-10">
-                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Key Players</h4>
-                   <div className="flex flex-wrap gap-2">
-                     {team.players.slice(0, 3).map(p => (
-                       <span key={p.id} className="text-xs font-medium bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md">
-                         {p.name}
+                <div className="mt-10 pt-8 border-t border-slate-50">
+                   <div className="flex flex-wrap gap-2.5">
+                     {(team.players || []).slice(0, 4).map(p => (
+                       <span key={p.id} className="text-xs font-black bg-slate-50 text-slate-500 px-4 py-2 rounded-xl border border-slate-100 group-hover:bg-white transition-colors uppercase tracking-wider">
+                         {p.name?.split(' ')[0]}
                        </span>
                      ))}
-                     {team.players.length > 3 && (
-                       <span className="text-xs font-medium text-gray-400 px-2 py-1.5">
-                         +{team.players.length - 3} more
+                     {(team.players || []).length > 4 && (
+                       <span className="text-xs font-black text-slate-300 px-2 py-2">
+                         +{(team.players || []).length - 4} MORE
                        </span>
                      )}
                    </div>
                 </div>
-
-                {/* Edit & Delete Actions - Visible on Hover */}
-                <div className="absolute top-4 right-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
-                   <button 
-                    type="button"
-                    onClick={(e) => handleEdit(e, team)}
-                    className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-blue-50 hover:text-blue-600 transition-colors shadow-sm cursor-pointer"
-                    title="Edit Team"
-                   >
-                     <Edit2 size={16} />
-                   </button>
-                   <button 
-                    type="button"
-                    onClick={(e) => {
-                       e.stopPropagation();
-                       handleDeleteClick(team.id, team.name);
-                    }}
-                    className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm cursor-pointer"
-                    title="Delete Team"
-                   >
-                     <Trash2 size={16} />
-                   </button>
-                </div>
-
               </div>
             );
           })}
-          
-          {state.teams.length === 0 && (
-            <div className="col-span-full text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-              <Shield size={48} className="mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500 font-medium">No teams found. Create your first team to get started!</p>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {deleteModal.show && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm animate-pop p-6">
-                <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
-                        <Trash2 size={32} />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Team?</h3>
-                    <p className="text-gray-500 mb-6 text-sm">
-                        Are you sure you want to delete <span className="font-bold text-gray-800">{deleteModal.teamName}</span>? <br/>This action cannot be undone.
-                    </p>
-                    
-                    <div className="flex gap-3 w-full">
-                        <button 
-                            onClick={() => setDeleteModal({ show: false, teamId: null, teamName: '' })}
-                            className="flex-1 py-3 text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={confirmDelete}
-                            className="flex-1 py-3 text-white font-bold bg-red-600 hover:bg-red-700 rounded-lg shadow-md hover:shadow-lg transition-all"
-                        >
-                            Delete
-                        </button>
-                    </div>
+        <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+            <div className="bg-white rounded-[3.5rem] shadow-2xl w-full max-w-md animate-pop p-14 text-center">
+                <div className="w-28 h-28 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-10">
+                    <Trash2 size={56} />
+                </div>
+                <h3 className="text-4xl font-black text-slate-900 mb-5 tracking-tight">Delete {deleteModal.teamName}?</h3>
+                <p className="text-slate-400 font-bold mb-12 text-lg leading-relaxed">
+                    This will remove the team and its squad history permanently. This action cannot be undone.
+                </p>
+                
+                <div className="flex flex-col gap-4">
+                    <button 
+                        onClick={confirmDelete}
+                        className="w-full py-6 text-white font-black bg-red-600 hover:bg-red-700 rounded-[1.5rem] shadow-2xl transition-all transform active:scale-95 uppercase tracking-widest text-sm"
+                    >
+                        Delete Team Permanently
+                    </button>
+                    <button 
+                        onClick={() => setDeleteModal({ show: false, teamId: null, teamName: '' })}
+                        className="w-full py-6 text-slate-400 font-black bg-slate-50 hover:bg-slate-100 rounded-[1.5rem] transition-all uppercase tracking-widest text-sm"
+                    >
+                        No, Keep it
+                    </button>
                 </div>
             </div>
         </div>

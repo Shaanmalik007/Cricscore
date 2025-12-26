@@ -1,4 +1,3 @@
-
 export type PlayerRole = 'BATSMAN' | 'BOWLER' | 'ALL_ROUNDER' | 'WICKET_KEEPER';
 
 export interface Player {
@@ -10,9 +9,10 @@ export interface Player {
 export interface Team {
   id: string;
   name: string;
-  shortName: string; // e.g., IND, AUS
+  shortName: string;
   players: Player[];
   logoColor?: string;
+  isDefault?: boolean; // New: To identify system default teams
 }
 
 export type WicketType = 'BOWLED' | 'CAUGHT' | 'LBW' | 'RUN_OUT' | 'STUMPED' | 'HIT_WICKET' | 'RETIRED';
@@ -21,17 +21,19 @@ export type ExtraType = 'WIDE' | 'NO_BALL' | 'BYE' | 'LEG_BYE' | 'NONE';
 
 export interface BallEvent {
   id: string;
-  overNumber: number; // 0-indexed
-  ballNumber: number; // 1-indexed within over
+  overNumber: number;
+  ballNumber: number;
   bowlerId: string;
   strikerId: string;
-  nonStrikerId: string | null; // Nullable for Lone Striker mode
-  runsScored: number; // Runs off bat
-  extras: number; // Extra runs
+  nonStrikerId: string | null;
+  runsScored: number;
+  extras: number;
   extraType: ExtraType;
   isWicket: boolean;
   wicketType?: WicketType;
-  wicketPlayerId?: string; // Who got out
+  wicketPlayerId?: string;
+  fielderName?: string;
+  runsOnWicket?: number;
   timestamp: number;
   commentary?: string;
 }
@@ -43,12 +45,12 @@ export interface BattingStats {
   fours: number;
   sixes: number;
   isOut: boolean;
-  wicketInfo?: string; // e.g., "b. Starc"
+  wicketInfo?: string;
 }
 
 export interface BowlingStats {
   playerId: string;
-  overs: number; // calculated as balls / 6
+  overs: number;
   ballsBowled: number;
   maidens: number;
   runsConceded: number;
@@ -62,8 +64,8 @@ export interface Inning {
   bowlingTeamId: string;
   totalRuns: number;
   totalWickets: number;
-  oversBowled: number; // e.g. 14.2 is 14.333 internally or stored as balls
-  totalBalls: number; // Legal balls bowled
+  oversBowled: number;
+  totalBalls: number;
   extras: {
     wides: number;
     noBalls: number;
@@ -81,8 +83,27 @@ export interface Inning {
   loneStrikerMode: boolean;
 }
 
+export interface MatchLocation {
+  lat: number;
+  lng: number;
+  city?: string;
+  groundName?: string;
+}
+
+export interface MatchCheers {
+  clap: number;
+  fire: number;
+  celebrate: number;
+  wow: number;
+}
+
 export interface Match {
   id: string;
+  gameId?: string;
+  isPublic?: boolean;
+  location?: MatchLocation;
+  cheers?: MatchCheers;
+  createdBy?: string;
   name: string;
   date: string;
   type: 'T20' | 'ODI' | 'TEST' | 'CUSTOM';
@@ -90,22 +111,18 @@ export interface Match {
   teams: [Team, Team];
   tossWinnerId: string | null;
   tossDecision: 'BAT' | 'BOWL' | null;
-  // Toss Simulation Data
   tossCallerId?: string;
   tossCall?: 'HEADS' | 'TAILS';
   tossResult?: 'HEADS' | 'TAILS';
-  
   status: 'SCHEDULED' | 'LIVE' | 'COMPLETED';
-  currentInningIndex: number; // 0 or 1
+  currentInningIndex: number;
   innings: [Inning, Inning];
   winnerTeamId?: string | null;
-  // Tournament Extensions
   tournamentId?: string;
-  groupId?: string; // "Group A", "Group B"
+  groupId?: string;
   manOfTheMatchId?: string;
+  abandonmentReason?: string; // New: Why match was ended manually
 }
-
-// --- TOURNAMENT TYPES ---
 
 export interface TournamentTeamEntry {
   teamId: string;
@@ -119,7 +136,7 @@ export interface Tournament {
   endDate: string;
   format: 'T20' | 'ODI' | 'T10' | 'CUSTOM';
   overs: number;
-  groups: string[]; // ["Group A", "Group B"]
+  groups: string[];
   teams: TournamentTeamEntry[];
   status: 'UPCOMING' | 'ONGOING' | 'COMPLETED';
   manOfTheSeriesId?: string;
@@ -136,18 +153,16 @@ export interface PointsTableEntry {
   noResult: number;
   points: number;
   nrr: number;
-  // For NRR Calc
   runsScored: number;
-  oversFaced: number; // in balls
+  oversFaced: number;
   runsConceded: number;
-  oversBowled: number; // in balls
+  oversBowled: number;
 }
 
 export interface PlayerTournamentStats {
   playerId: string;
   playerName: string;
   teamName: string;
-  // Batting
   runs: number;
   inningsBat: number;
   ballsFaced: number;
@@ -157,10 +172,9 @@ export interface PlayerTournamentStats {
   notOuts: number;
   average: number;
   strikeRate: number;
-  // Bowling
   wickets: number;
-  oversBowled: number; // balls
+  oversBowled: number;
   runsConceded: number;
   economy: number;
-  bestFigures: string; // "3/24"
+  bestFigures: string;
 }
