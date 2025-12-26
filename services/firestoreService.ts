@@ -1,89 +1,105 @@
 import { db, auth } from '../lib/firebase';
-// Fix: Modular imports from 'firebase/firestore' should be named correctly. 
 // @ts-ignore
-import { collection, doc, setDoc, updateDoc, onSnapshot, query, where, getDocs, increment, orderBy, limit, serverTimestamp, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, onSnapshot, query, where, getDocs, getDoc, increment, orderBy, limit, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { Match, MatchCheers, BallEvent, Team } from '../types';
-import * as GameLogic from './gameLogic';
 
 const MATCHES_COLLECTION = 'matches';
 
-// Helper to remove undefined fields which Firestore rejects
 const sanitizeData = (data: any) => {
-    const clean = JSON.parse(JSON.stringify(data));
-    return clean;
+    try {
+        return JSON.parse(JSON.stringify(data, (key, value) => {
+            return value === undefined ? null : value;
+        }));
+    } catch (e) {
+        return {};
+    }
 };
 
-// --- WRITES ---
+// --- NON-BLOCKING BACKGROUND WRITES ---
 
-export const saveMatchToFirestore = async (match: Match, userId?: string) => {
+/**
+ * Syncs minimal match metadata to Firestore.
+ * Strictly non-blocking. If Firestore fails or permissions are missing,
+ * the app continues normally.
+ */
+export const saveMatchToFirestore = (match: Match) => {
+  // HARD GUARD: Do not attempt to sync if match is already completed
+  if (!match || match.status === 'COMPLETED') return;
+
   try {
-    const matchRef = doc(db, MATCHES_COLLECTION, match.id);
-    const creatorId = userId || match.createdBy || auth.currentUser?.uid;
-    
+    const creatorId = auth.currentUser?.uid || match.createdBy;
     if (!creatorId) return;
 
-    const rawData = {
-        ...match,
-        createdBy: creatorId,
-        cheers: match.cheers || { clap: 0, fire: 0, celebrate: 0, wow: 0 }
-    };
+    const matchRef = doc(db, MATCHES_COLLECTION, match.id);
     
-    const matchData = sanitizeData(rawData);
-    await setDoc(matchRef, matchData, { merge: true });
-  } catch (error: any) {
-    console.error("Error saving match to Firestore:", error.message);
+    // Minimal data sync to avoid payload/permission issues
+    const syncData = sanitizeData({
+      id: match.id,
+      name: match.name,
+      status: match.status,
+      createdBy: creatorId,
+      teams: match.teams.map(t => ({ id: t.id, name: t.name, shortName: t.shortName })),
+      currentInningIndex: match.currentInningIndex,
+      isPublic: match.isPublic,
+      gameId: match.gameId,
+      updatedAt: serverTimestamp(),
+      // Current score for live list
+      lastScore: match.innings[match.currentInningIndex] ? {
+          runs: match.innings[match.currentInningIndex].totalRuns,
+          wickets: match.innings[match.currentInningIndex].totalWickets,
+          balls: match.innings[match.currentInningIndex].totalBalls
+      } : null
+    });
+
+    // Fire and forget - do not await
+    setDoc(matchRef, syncData, { merge: true }).catch(() => {
+        // Silent catch: Permission or network errors must not block the app
+    });
+  } catch (err) {
+    // Catch sync setup errors
   }
 };
 
-export const addBallToFirestore = async (matchId: string, ball: BallEvent) => {
-    try {
-        const ballsRef = collection(db, MATCHES_COLLECTION, matchId, 'balls');
-        await addDoc(ballsRef, sanitizeData(ball));
-    } catch (error: any) {
-        console.error("Error logging ball to Firestore:", error.message);
-    }
+/**
+ * DISABLED: Ball logging removed to prevent Firestore permission errors from blocking the UI.
+ */
+export const addBallToFirestore = (matchId: string, ball: BallEvent) => {
+    return; // NO-OP
 };
 
-export const finalizeMatchInFirestore = async (matchId: string, result: any) => {
+/**
+ * Marks match as completed in Firestore. Minimal write.
+ */
+export const finalizeMatchInFirestore = (matchId: string, result: { winnerTeamId: string | null, winMargin?: string }) => {
     try {
         const matchRef = doc(db, MATCHES_COLLECTION, matchId);
-        // Ensure createdBy is not lost and merge logic is clean
-        await updateDoc(matchRef, {
-            ...sanitizeData(result),
+        updateDoc(matchRef, {
             status: 'COMPLETED',
+            winnerTeamId: result.winnerTeamId,
+            abandonmentReason: result.winMargin,
             completedAt: serverTimestamp(),
+        }).catch(() => {
+            // Silent catch
         });
-    } catch (error: any) {
-        console.error("Error finalizing match in Firestore:", error.message);
+    } catch (err) {
+        // Catch sync setup errors
     }
 };
 
-// --- USER DATA PERSISTENCE ---
+// --- USER DATA PERSISTENCE (NON-BLOCKING) ---
 
-export const saveUserTeam = async (userId: string, team: Team) => {
+export const saveUserTeam = (userId: string, team: Team) => {
   try {
     const teamRef = doc(db, 'users', userId, 'Teams', team.id);
-    // Do not sanitize the whole object at once if it contains serverTimestamps
-    const teamData = {
-      ...sanitizeData(team),
-      createdBy: userId,
-      createdAt: team.isDefault ? null : serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      isDefault: team.isDefault || false
-    };
-    await setDoc(teamRef, teamData, { merge: true });
-  } catch (error: any) {
-    console.error("Error saving user team to Firestore:", error);
-  }
+    setDoc(teamRef, sanitizeData(team), { merge: true }).catch(() => {});
+  } catch (err) {}
 };
 
-export const deleteUserTeam = async (userId: string, teamId: string) => {
+export const deleteUserTeam = (userId: string, teamId: string) => {
   try {
     const teamRef = doc(db, 'users', userId, 'Teams', teamId);
-    await deleteDoc(teamRef);
-  } catch (error: any) {
-    console.error("Error deleting user team from Firestore:", error);
-  }
+    deleteDoc(teamRef).catch(() => {});
+  } catch (err) {}
 };
 
 export const getUserTeams = async (userId: string): Promise<Team[]> => {
@@ -92,56 +108,54 @@ export const getUserTeams = async (userId: string): Promise<Team[]> => {
     const snapshot = await getDocs(teamsRef);
     return snapshot.docs.map(doc => doc.data() as Team);
   } catch (error) {
-    console.error("Error fetching user teams:", error);
     return [];
   }
 };
 
-export const saveMatchHistorySnapshot = async (userId: string, match: Match, winMargin?: string) => {
+/**
+ * Saves a final snapshot of the match to the user's private history.
+ * Non-blocking.
+ */
+export const saveMatchHistorySnapshot = (userId: string, match: Match) => {
   try {
     const historyRef = doc(db, 'users', userId, 'Matches', match.id);
-    const snapshot = {
+    const snapshot = sanitizeData({
       id: match.id,
       matchName: match.name,
-      gameId: match.gameId || null,
-      createdBy: userId,
-      teams: {
-        teamA: { id: match.teams[0].id, name: match.teams[0].name, shortName: match.teams[0].shortName },
-        teamB: { id: match.teams[1].id, name: match.teams[1].name, shortName: match.teams[1].shortName }
-      },
+      teams: match.teams,
       startTime: match.date,
-      completedAt: serverTimestamp(),
-      finalScore: match.innings.map(inn => ({
-        runs: inn.totalRuns,
-        wickets: inn.totalWickets,
-        overs: GameLogic.getOversDisplay(inn.totalBalls)
-      })),
-      inningsSummary: match.innings.map(inn => ({
-        battingTeam: inn.battingTeamId,
-        totalRuns: inn.totalRuns,
-        totalWickets: inn.totalWickets,
-        totalBalls: inn.totalBalls
-      })),
+      completedAt: new Date().toISOString(),
       result: {
         winnerTeamId: match.winnerTeamId || null,
-        winMargin: winMargin || (match.abandonmentReason ? `Abandoned: ${match.abandonmentReason}` : 'Tie/No Result')
-      }
-    };
-    await setDoc(historyRef, snapshot); // Using setDoc for history as it's a new snapshot
-  } catch (error: any) {
-    console.error("Error saving match history snapshot:", error);
-  }
+        winMargin: match.abandonmentReason || 'Finished'
+      },
+      finalInnings: match.innings.map(inn => ({
+          runs: inn.totalRuns,
+          wickets: inn.totalWickets,
+          balls: inn.totalBalls
+      }))
+    });
+    setDoc(historyRef, snapshot).catch(() => {});
+  } catch (err) {}
 };
 
 export const getUserMatchHistory = async (userId: string): Promise<any[]> => {
   try {
     const historyRef = collection(db, 'users', userId, 'Matches');
-    const q = query(historyRef, orderBy('completedAt', 'desc'), limit(20));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(query(historyRef, limit(20)));
     return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
   } catch (error) {
-    console.error("Error fetching user match history:", error);
     return [];
+  }
+};
+
+export const getMatchFromHistory = async (userId: string, matchId: string): Promise<any | null> => {
+  try {
+    const matchRef = doc(db, 'users', userId, 'Matches', matchId);
+    const docSnap = await getDoc(matchRef);
+    return docSnap.exists() ? { ...docSnap.data(), id: docSnap.id } : null;
+  } catch (error) {
+    return null;
   }
 };
 
@@ -149,70 +163,47 @@ export const deleteMatchHistorySnapshot = async (userId: string, matchId: string
   try {
     const matchRef = doc(db, 'users', userId, 'Matches', matchId);
     await deleteDoc(matchRef);
-  } catch (error) {
-    console.error("Error deleting match history snapshot:", error);
-    throw error;
+  } catch (err) {
+      throw err;
   }
 };
 
-export const sendCheer = async (matchId: string, type: keyof MatchCheers) => {
+export const sendCheer = (matchId: string, type: keyof MatchCheers) => {
     try {
         const matchRef = doc(db, MATCHES_COLLECTION, matchId);
-        await updateDoc(matchRef, {
-            [`cheers.${type}`]: increment(1)
-        });
-    } catch (error: any) {
-        if (error.code === 'permission-denied') return;
-        console.error("Error sending cheer:", error);
-    }
-}
+        updateDoc(matchRef, { [`cheers.${type}`]: increment(1) }).catch(() => {});
+    } catch (err) {}
+};
 
 // --- READS ---
 
 export const getMatchBalls = async (matchId: string): Promise<BallEvent[]> => {
-    try {
-        const ballsRef = collection(db, MATCHES_COLLECTION, matchId, 'balls');
-        const q = query(ballsRef, orderBy('timestamp', 'asc'));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data() as BallEvent);
-    } catch (error) {
-        console.error("Error fetching balls:", error);
-        return [];
-    }
+    return []; // Managed locally
 };
 
 export const subscribeToMatch = (matchId: string, onUpdate: (match: Match) => void, onNotFound?: () => void) => {
     const matchRef = doc(db, MATCHES_COLLECTION, matchId);
     return onSnapshot(matchRef, (docSnap) => {
-        if (docSnap.exists()) {
-            onUpdate(docSnap.data() as Match);
-        } else if (onNotFound) {
-            onNotFound();
-        }
-    });
+        if (docSnap.exists()) onUpdate(docSnap.data() as Match);
+        else if (onNotFound) onNotFound();
+    }, () => {});
 };
 
 export const subscribeToMatchByGameId = (gameId: string, onUpdate: (match: Match) => void, onNotFound?: () => void) => {
     const matchesRef = collection(db, MATCHES_COLLECTION);
-    const q = query(matchesRef, where('gameId', '==', gameId), limit(1));
+    const q = query(matchesRef, where('gameId', '==', gameId), where('isPublic', '==', true), limit(1));
     return onSnapshot(q, (querySnap) => {
-        if (!querySnap.empty) {
-            onUpdate(querySnap.docs[0].data() as Match);
-        } else if (onNotFound) {
-            onNotFound();
-        }
-    });
+        if (!querySnap.empty) onUpdate(querySnap.docs[0].data() as Match);
+        else if (onNotFound) onNotFound();
+    }, () => {});
 };
 
 export const getLiveMatches = async (): Promise<Match[]> => {
     try {
         const matchesRef = collection(db, MATCHES_COLLECTION);
-        const q = query(matchesRef, where('status', '==', 'LIVE'), where('isPublic', '==', true));
+        const q = query(matchesRef, where('status', '==', 'LIVE'), where('isPublic', '==', true), limit(3));
         const snapshot = await getDocs(q);
-        const matches = snapshot.docs.map(doc => doc.data() as Match);
-        return matches
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 3);
+        return snapshot.docs.map(doc => doc.data() as Match);
     } catch (error) {
         return [];
     }

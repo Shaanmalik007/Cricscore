@@ -1,4 +1,3 @@
-
 import { Match, Team, Tournament } from '../types';
 
 const STORAGE_KEYS = {
@@ -9,6 +8,7 @@ const STORAGE_KEYS = {
 };
 
 export const saveTeam = (team: Team) => {
+  if (!team || !team.name || team.name.trim() === '') return;
   const teams = getTeams();
   const existingIndex = teams.findIndex(t => t.id === team.id);
   if (existingIndex >= 0) {
@@ -27,7 +27,14 @@ export const deleteTeam = (teamId: string) => {
 
 export const getTeams = (): Team[] => {
   const data = localStorage.getItem(STORAGE_KEYS.TEAMS);
-  return data ? JSON.parse(data) : [];
+  if (!data) return [];
+  try {
+    const teams: any[] = JSON.parse(data);
+    // Strict validation to purge corrupted/unnamed data
+    return teams.filter(t => t && typeof t === 'object' && t.name && typeof t.name === 'string' && t.name.trim() !== '');
+  } catch {
+    return [];
+  }
 };
 
 export const saveMatch = (match: Match) => {
@@ -39,9 +46,12 @@ export const saveMatch = (match: Match) => {
     matches.push(match);
   }
   localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
-  // Also save as active match for continuity
+  
   if (match.status === 'LIVE') {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_MATCH, match.id);
+  } else if (match.status === 'COMPLETED') {
+    // We keep the active match ID in storage so the user can see the Summary screen 
+    // but the reducer logic handles clearing it for 'Start New Match' purposes.
   }
 };
 
@@ -51,8 +61,7 @@ export const getMatches = (): Match[] => {
 };
 
 export const getMatchById = (id: string): Match | undefined => {
-  const matches = getMatches();
-  return matches.find(m => m.id === id);
+  return getMatches().find(m => m.id === id);
 };
 
 export const getActiveMatchId = (): string | null => {
@@ -62,8 +71,6 @@ export const getActiveMatchId = (): string | null => {
 export const clearActiveMatch = () => {
   localStorage.removeItem(STORAGE_KEYS.ACTIVE_MATCH);
 };
-
-// --- TOURNAMENT STORAGE ---
 
 export const saveTournament = (tournament: Tournament) => {
   const tournaments = getTournaments();
@@ -79,4 +86,4 @@ export const saveTournament = (tournament: Tournament) => {
 export const getTournaments = (): Tournament[] => {
   const data = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
   return data ? JSON.parse(data) : [];
-};
+}

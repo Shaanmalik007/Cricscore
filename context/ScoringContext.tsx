@@ -2,8 +2,6 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Match, Team, ExtraType, Inning, BallEvent, WicketType, Tournament } from '../types';
 import * as GameLogic from '../services/gameLogic';
 import * as StorageService from '../services/storageService';
-import * as FirestoreService from '../services/firestoreService';
-import { auth, db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 
 interface ScoringState {
@@ -36,7 +34,7 @@ type Action =
   | { type: 'SET_BATSMEN'; payload: { strikerId: string; nonStrikerId: string } }
   | { type: 'SET_BOWLER'; payload: { bowlerId: string } }
   | { type: 'START_NEXT_INNING' }
-  | { type: 'DECLARE_INNING_END' }
+  | { type: 'DECLARE_INNING_END'; payload: { matchId: string } }
   | { type: 'ALLOW_LONE_STRIKER' }
   | { type: 'END_MATCH' }
   | { type: 'FINALIZE_MATCH'; payload: { matchId: string; winnerTeamId: string | null; winMargin?: string; reason?: string } }
@@ -49,11 +47,15 @@ const ScoringContext = createContext<{
 } | undefined>(undefined);
 
 const processBall = (match: Match, payload: { runs: number; extras: number; extraType: ExtraType; isWicket: boolean; wicketType?: WicketType; wicketPlayerId?: string; fielderName?: string; runsOnWicket?: number }): Match => {
+  // 1. Guard Check
+  if (match.status === 'COMPLETED') return match;
+
   const currentInningIndex = match.currentInningIndex;
   const inning = match.innings[currentInningIndex];
   
-  if (!inning || !inning.currentStrikerId || !inning.currentBowlerId) return match; 
+  if (!inning || !inning.currentStrikerId || !inning.currentBowlerId || inning.isCompleted) return match; 
 
+  // 2. Calculate New Stats
   const newBattingStats = { ...inning.battingStats };
   const newBowlingStats = { ...inning.bowlingStats };
   const newExtras = { ...inning.extras };
@@ -75,6 +77,7 @@ const processBall = (match: Match, payload: { runs: number; extras: number; extr
 
   const newTotalBalls = (inning.totalBalls || 0) + (isLegalDelivery ? 1 : 0);
   
+  // Update Batting Stats
   if (!newBattingStats[inning.currentStrikerId]) {
       newBattingStats[inning.currentStrikerId] = { playerId: inning.currentStrikerId, runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false };
   }
@@ -107,10 +110,7 @@ const processBall = (match: Match, payload: { runs: number; extras: number; extr
           newBattingStats[outPlayerId] = strikerStats;
           nextStrikerId = null; 
       } else if (outPlayerId === inning.currentNonStrikerId && outPlayerId) {
-          if (!newBattingStats[outPlayerId]) {
-              newBattingStats[outPlayerId] = { playerId: outPlayerId, runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false };
-          }
-          const outPlayerStats = { ...newBattingStats[outPlayerId] };
+          const outPlayerStats = { ...(newBattingStats[outPlayerId] || { playerId: outPlayerId, runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false }) };
           outPlayerStats.isOut = true;
           outPlayerStats.wicketInfo = wInfo;
           newBattingStats[outPlayerId] = outPlayerStats;
@@ -121,6 +121,7 @@ const processBall = (match: Match, payload: { runs: number; extras: number; extr
       newBattingStats[inning.currentStrikerId] = strikerStats;
   }
 
+  // Update Bowling Stats
   if (!newBowlingStats[inning.currentBowlerId]) {
       newBowlingStats[inning.currentBowlerId] = { playerId: inning.currentBowlerId, overs: 0, ballsBowled: 0, maidens: 0, runsConceded: 0, wickets: 0, wides: 0, noBalls: 0 };
   }
@@ -141,6 +142,7 @@ const processBall = (match: Match, payload: { runs: number; extras: number; extr
   if (payload.extraType === 'NO_BALL') bowlerStats.noBalls += 1;
   newBowlingStats[inning.currentBowlerId] = bowlerStats;
 
+  // Record Event
   const newBall: BallEvent = {
     id: Date.now().toString(),
     overNumber: Math.floor(newTotalBalls / 6),
@@ -162,6 +164,7 @@ const processBall = (match: Match, payload: { runs: number; extras: number; extr
   const newEvents = [...(inning.events || []), newBall];
   const newThisOver = isLegalDelivery && (newTotalBalls % 6 === 0) ? [] : [...(inning.thisOver || []), newBall];
 
+  // Rotation Logic
   let totalRotationRuns = (payload.runs || 0) + (payload.runsOnWicket || 0); 
   if (payload.extraType === 'WIDE') totalRotationRuns = Math.max(0, payload.extras - 1);
 
@@ -175,27 +178,7 @@ const processBall = (match: Match, payload: { runs: number; extras: number; extr
       nextBowlerId = null; 
   }
 
-  let isInningCompleted = inning.isCompleted;
-  const maxLegalBalls = match.oversPerInning * 6;
-  if (newTotalBalls >= maxLegalBalls) isInningCompleted = true;
-
-  const battingTeamObj = match.teams.find(t => t.id === inning.battingTeamId);
-  const totalPlayers = battingTeamObj ? battingTeamObj.players.length : 11;
-  if (newTotalWickets >= totalPlayers - 1 && !inning.loneStrikerMode) isInningCompleted = true;
-
-  // --- AUTOCOMPLETE LOGIC: Target Chased ---
-  let isMatchCompleted = match.status === 'COMPLETED';
-  let winnerId = match.winnerTeamId;
-
-  if (match.currentInningIndex === 1) {
-    const target = match.innings[0].totalRuns + 1;
-    if (newTotalRuns >= target) {
-      isInningCompleted = true;
-      isMatchCompleted = true;
-      winnerId = inning.battingTeamId;
-    }
-  }
-
+  // --- STRICT MATCH COMPLETION LOGIC ---
   const updatedInning: Inning = {
       ...inning,
       totalRuns: newTotalRuns,
@@ -209,17 +192,73 @@ const processBall = (match: Match, payload: { runs: number; extras: number; extr
       currentStrikerId: nextStrikerId,
       currentNonStrikerId: nextNonStrikerId,
       currentBowlerId: nextBowlerId,
-      isCompleted: isInningCompleted
+      isCompleted: false // Default, will verify below
   };
 
+  let nextMatchStatus: 'SCHEDULED' | 'LIVE' | 'COMPLETED' = match.status;
+  let nextInningIndex = match.currentInningIndex;
+  let nextWinnerId = match.winnerTeamId;
+  let nextAbandonmentReason = match.abandonmentReason;
+
+  const battingTeamObj = match.teams.find(t => t.id === inning.battingTeamId);
+  const totalPlayers = battingTeamObj?.players?.length || 11;
+  const wicketsForAllOut = totalPlayers - 1;
+  const maxBalls = match.oversPerInning * 6;
+
+  // Completion Conditions
+  const isAllOut = (newTotalWickets >= wicketsForAllOut) && !inning.loneStrikerMode;
+  const isOversDone = newTotalBalls >= maxBalls;
+  
+  // 1. FIRST INNING LOGIC
+  if (match.currentInningIndex === 0) {
+      if (isAllOut || isOversDone) {
+          updatedInning.isCompleted = true; // Lock first inning
+          updatedInning.currentStrikerId = null;
+          updatedInning.currentNonStrikerId = null;
+          updatedInning.currentBowlerId = null;
+          
+          nextInningIndex = 1; // AUTOMATICALLY SWITCH TO 2ND INNING
+      }
+  }
+  // 2. SECOND INNING LOGIC
+  else if (match.currentInningIndex === 1) {
+      const firstInningScore = match.innings[0].totalRuns;
+      const target = firstInningScore + 1;
+      const isTargetReached = newTotalRuns >= target;
+      
+      if (isAllOut || isOversDone || isTargetReached) {
+          updatedInning.isCompleted = true; // Lock second inning
+          updatedInning.currentStrikerId = null;
+          updatedInning.currentNonStrikerId = null;
+          updatedInning.currentBowlerId = null;
+
+          nextMatchStatus = 'COMPLETED'; // HARD STOP
+          
+          if (newTotalRuns >= target) {
+             nextWinnerId = updatedInning.battingTeamId;
+             const wicketsLeft = wicketsForAllOut - newTotalWickets;
+             nextAbandonmentReason = `Won by ${wicketsLeft} wickets`;
+          } else if (newTotalRuns < firstInningScore) {
+             nextWinnerId = match.innings[0].battingTeamId;
+             const runDiff = firstInningScore - newTotalRuns;
+             nextAbandonmentReason = `Won by ${runDiff} runs`;
+          } else {
+             nextWinnerId = null;
+             nextAbandonmentReason = "Match Tied";
+          }
+      }
+  }
+
   const newInnings = [...match.innings] as [Inning, Inning];
-  newInnings[currentInningIndex] = updatedInning;
+  newInnings[match.currentInningIndex] = updatedInning;
 
   return { 
     ...match, 
     innings: newInnings, 
-    status: isMatchCompleted ? 'COMPLETED' : match.status,
-    winnerTeamId: winnerId
+    currentInningIndex: nextInningIndex,
+    status: nextMatchStatus,
+    winnerTeamId: nextWinnerId,
+    abandonmentReason: nextAbandonmentReason
   };
 };
 
@@ -229,35 +268,20 @@ const scoringReducer = (state: ScoringState, action: Action): ScoringState => {
       return { ...state, ...action.payload, isLoading: false };
     
     case 'CREATE_TEAM':
+      if (!action.payload.name || action.payload.name.trim() === '') return state;
       StorageService.saveTeam(action.payload);
-      if (auth.currentUser) {
-          FirestoreService.saveUserTeam(auth.currentUser.uid, action.payload);
-      }
       return { ...state, teams: [...state.teams, action.payload] };
 
     case 'UPDATE_TEAM':
       StorageService.saveTeam(action.payload);
-      if (auth.currentUser) {
-          FirestoreService.saveUserTeam(auth.currentUser.uid, action.payload);
-      }
-      return { 
-        ...state, 
-        teams: state.teams.map(t => t.id === action.payload.id ? action.payload : t) 
-      };
+      return { ...state, teams: state.teams.map(t => t.id === action.payload.id ? action.payload : t) };
 
     case 'DELETE_TEAM':
       StorageService.deleteTeam(action.payload.teamId);
-      if (auth.currentUser) {
-          FirestoreService.deleteUserTeam(auth.currentUser.uid, action.payload.teamId);
-      }
-      return { 
-        ...state, 
-        teams: state.teams.filter(t => t.id !== action.payload.teamId) 
-      };
+      return { ...state, teams: state.teams.filter(t => t.id !== action.payload.teamId) };
 
     case 'CREATE_MATCH':
       StorageService.saveMatch(action.payload);
-      FirestoreService.saveMatchToFirestore(action.payload, auth.currentUser?.uid);
       return { ...state, matches: [...state.matches, action.payload] };
 
     case 'START_MATCH': {
@@ -265,19 +289,20 @@ const scoringReducer = (state: ScoringState, action: Action): ScoringState => {
       if (matchIndex === -1) return state;
       const match = state.matches[matchIndex];
       const [t1, t2] = match.teams;
-      let battingTeam, bowlingTeam;
+      let bId, oId;
       if (action.payload.tossDecision === 'BAT') {
-        battingTeam = action.payload.tossWinnerId === t1.id ? t1 : t2;
-        bowlingTeam = action.payload.tossWinnerId === t1.id ? t2 : t1;
+        bId = action.payload.tossWinnerId === t1.id ? t1 : t2;
+        oId = action.payload.tossWinnerId === t1.id ? t2 : t1;
       } else {
-        bowlingTeam = action.payload.tossWinnerId === t1.id ? t1 : t2;
-        battingTeam = action.payload.tossWinnerId === t1.id ? t2 : t1;
+        oId = action.payload.tossWinnerId === t1.id ? t1 : t2;
+        bId = action.payload.tossWinnerId === t1.id ? t2 : t1;
       }
-      const inning1 = GameLogic.createInitialInning(battingTeam.id, bowlingTeam.id, battingTeam.players, bowlingTeam.players);
-      const inning2 = GameLogic.createInitialInning(bowlingTeam.id, battingTeam.id, bowlingTeam.players, battingTeam.players);
-      const startedMatch: Match = { ...match, status: 'LIVE', innings: [inning1, inning2] };
+      const i1 = GameLogic.createInitialInning(bId.id, oId.id, bId.players, oId.players);
+      const i2 = GameLogic.createInitialInning(oId.id, bId.id, oId.players, bId.players);
+      const startedMatch: Match = { ...match, status: 'LIVE', innings: [i1, i2] };
+      
       StorageService.saveMatch(startedMatch);
-      FirestoreService.saveMatchToFirestore(startedMatch, auth.currentUser?.uid);
+      
       const updatedMatches = [...state.matches];
       updatedMatches[matchIndex] = startedMatch;
       return { ...state, matches: updatedMatches, activeMatchId: action.payload.matchId };
@@ -285,160 +310,139 @@ const scoringReducer = (state: ScoringState, action: Action): ScoringState => {
 
     case 'RECORD_BALL': {
       if (!state.activeMatchId) return state;
-      const matchIndex = state.matches.findIndex(m => m.id === state.activeMatchId);
-      if (matchIndex === -1) return state;
-      const currentMatch = state.matches[matchIndex];
-      const updatedMatch = processBall(currentMatch, action.payload);
+      const idx = state.matches.findIndex(m => m.id === state.activeMatchId);
+      if (idx === -1) return state;
       
-      const currentInn = updatedMatch.innings[updatedMatch.currentInningIndex];
-      const lastBall = currentInn.events?.[currentInn.events.length - 1];
-      if (lastBall) FirestoreService.addBallToFirestore(updatedMatch.id, lastBall);
+      const match = state.matches[idx];
       
-      // Handle Auto-Completion Firestore sync
-      if (updatedMatch.status === 'COMPLETED' && currentMatch.status === 'LIVE') {
-        const battingTeamObj = updatedMatch.teams.find(t => t.id === currentInn.battingTeamId);
-        const winMargin = `${(battingTeamObj?.players?.length || 11) - 1 - currentInn.totalWickets} wickets`;
-        
-        FirestoreService.finalizeMatchInFirestore(updatedMatch.id, { 
-            winnerTeamId: updatedMatch.winnerTeamId,
-            winMargin: winMargin,
-            status: 'COMPLETED'
-        });
-        
-        if (auth.currentUser) {
-          FirestoreService.saveMatchHistorySnapshot(auth.currentUser.uid, updatedMatch, winMargin);
-        }
-        StorageService.clearActiveMatch();
-      } else {
-        StorageService.saveMatch(updatedMatch);
-        FirestoreService.saveMatchToFirestore(updatedMatch, auth.currentUser?.uid);
+      // HARD STOP: If match is completed, allow NO scoring
+      if (match.status === 'COMPLETED') return state;
+      
+      const inning = match.innings[match.currentInningIndex];
+      // PRE-DELIVERY GUARD: If current inning is completed, allow NO scoring (Wait for manual override or undo)
+      if (inning.isCompleted) return state;
+
+      const updatedMatch = processBall(match, action.payload);
+      StorageService.saveMatch(updatedMatch);
+      
+      if (updatedMatch.status === 'COMPLETED') {
+          StorageService.clearActiveMatch();
       }
-      
+
       const updatedMatches = [...state.matches];
-      updatedMatches[matchIndex] = updatedMatch;
+      updatedMatches[idx] = updatedMatch;
+      
       return { 
         ...state, 
         matches: updatedMatches, 
-        activeMatchId: updatedMatch.status === 'COMPLETED' ? null : state.activeMatchId,
-        undoStack: [currentMatch, ...state.undoStack].slice(0, 5) 
+        activeMatchId: updatedMatch.status === 'COMPLETED' ? null : state.activeMatchId, // If completed, clear active ID to redirect to summary logic
+        undoStack: [match, ...state.undoStack].slice(0, 10) 
       };
     }
 
     case 'UNDO_LAST_BALL': {
         if (state.undoStack.length === 0) return state;
-        const previousMatch = state.undoStack[0];
+        
+        const previousState = state.undoStack[0];
         const newStack = state.undoStack.slice(1);
         
-        StorageService.saveMatch(previousMatch);
-        FirestoreService.saveMatchToFirestore(previousMatch, auth.currentUser?.uid);
+        // Sync local storage
+        StorageService.saveMatch(previousState);
         
-        return { 
-          ...state, 
-          matches: state.matches.map(m => m.id === previousMatch.id ? previousMatch : m), 
-          undoStack: newStack,
-          activeMatchId: previousMatch.id // Re-activate if it was undo from completed
+        const updatedMatches = state.matches.map(m => m.id === previousState.id ? previousState : m);
+        
+        return {
+            ...state,
+            matches: updatedMatches,
+            undoStack: newStack,
+            // Restore active ID if we undid a completion event
+            activeMatchId: previousState.status === 'LIVE' ? previousState.id : state.activeMatchId 
         };
     }
 
     case 'FINALIZE_MATCH': {
-        const matchIndex = state.matches.findIndex(m => m.id === action.payload.matchId);
-        if (matchIndex === -1) return state;
-        const currentMatch = state.matches[matchIndex];
-        const finalizedMatch = { 
-            ...currentMatch, 
-            status: 'COMPLETED' as const, 
-            winnerTeamId: action.payload.winnerTeamId,
-            abandonmentReason: action.payload.reason
-        };
-        StorageService.saveMatch(finalizedMatch);
-        FirestoreService.finalizeMatchInFirestore(action.payload.matchId, { 
-            winnerTeamId: action.payload.winnerTeamId,
-            winMargin: action.payload.winMargin,
-            abandonmentReason: action.payload.reason
-        });
+        const idx = state.matches.findIndex(m => m.id === action.payload.matchId);
+        if (idx === -1) return state;
         
-        if (auth.currentUser) {
-          FirestoreService.saveMatchHistorySnapshot(auth.currentUser.uid, finalizedMatch, action.payload.winMargin);
-        }
+        const finalized: Match = { 
+            ...state.matches[idx], 
+            status: 'COMPLETED', 
+            winnerTeamId: action.payload.winnerTeamId,
+            abandonmentReason: action.payload.reason || action.payload.winMargin || 'Match Finished'
+        };
+        
+        StorageService.saveMatch(finalized);
+        StorageService.clearActiveMatch();
 
         const updatedMatches = [...state.matches];
-        updatedMatches[matchIndex] = finalizedMatch;
-        StorageService.clearActiveMatch();
+        updatedMatches[idx] = finalized;
         return { ...state, matches: updatedMatches, activeMatchId: null };
     }
 
     case 'SET_BATSMEN': {
-        const matchIndex = state.matches.findIndex(m => m.id === state.activeMatchId);
-        if (matchIndex === -1) return state;
-        const match = state.matches[matchIndex];
+        const idx = state.matches.findIndex(m => m.id === state.activeMatchId);
+        if (idx === -1) return state;
+        const match = state.matches[idx];
         const newInnings = [...match.innings] as [Inning, Inning];
         newInnings[match.currentInningIndex] = {
             ...newInnings[match.currentInningIndex],
             currentStrikerId: action.payload.strikerId || null,
             currentNonStrikerId: action.payload.nonStrikerId || null
         };
-        const updatedMatch = { ...match, innings: newInnings };
-        StorageService.saveMatch(updatedMatch);
-        FirestoreService.saveMatchToFirestore(updatedMatch, auth.currentUser?.uid);
+        const updated = { ...match, innings: newInnings };
+        StorageService.saveMatch(updated);
         const updatedMatches = [...state.matches];
-        updatedMatches[matchIndex] = updatedMatch;
+        updatedMatches[idx] = updated;
         return { ...state, matches: updatedMatches };
     }
 
     case 'SET_BOWLER': {
-        const matchIndex = state.matches.findIndex(m => m.id === state.activeMatchId);
-        if (matchIndex === -1) return state;
-        const match = state.matches[matchIndex];
+        const idx = state.matches.findIndex(m => m.id === state.activeMatchId);
+        if (idx === -1) return state;
+        const match = state.matches[idx];
         const newInnings = [...match.innings] as [Inning, Inning];
         newInnings[match.currentInningIndex] = {
             ...newInnings[match.currentInningIndex],
             currentBowlerId: action.payload.bowlerId || null
         };
-        const updatedMatch = { ...match, innings: newInnings };
-        StorageService.saveMatch(updatedMatch);
-        FirestoreService.saveMatchToFirestore(updatedMatch, auth.currentUser?.uid);
+        const updated = { ...match, innings: newInnings };
+        StorageService.saveMatch(updated);
         const updatedMatches = [...state.matches];
-        updatedMatches[matchIndex] = updatedMatch;
+        updatedMatches[idx] = updated;
         return { ...state, matches: updatedMatches };
     }
 
     case 'START_NEXT_INNING': {
-        const matchIndex = state.matches.findIndex(m => m.id === state.activeMatchId);
-        if (matchIndex === -1) return state;
-        const match = state.matches[matchIndex];
-        const updatedMatch = { ...match, currentInningIndex: 1 };
-        StorageService.saveMatch(updatedMatch);
-        FirestoreService.saveMatchToFirestore(updatedMatch, auth.currentUser?.uid);
+        const idx = state.matches.findIndex(m => m.id === state.activeMatchId);
+        if (idx === -1) return state;
+        const updated = { ...state.matches[idx], currentInningIndex: 1 };
+        StorageService.saveMatch(updated);
         const updatedMatches = [...state.matches];
-        updatedMatches[matchIndex] = updatedMatch;
+        updatedMatches[idx] = updated;
         return { ...state, matches: updatedMatches };
     }
 
     case 'DECLARE_INNING_END': {
-        const matchIndex = state.matches.findIndex(m => m.id === state.activeMatchId);
-        if (matchIndex === -1) return state;
-        const match = state.matches[matchIndex];
-        const newInnings = [...match.innings] as [Inning, Inning];
-        newInnings[match.currentInningIndex] = { ...newInnings[match.currentInningIndex], isCompleted: true };
-        const updatedMatch = { ...match, innings: newInnings };
-        StorageService.saveMatch(updatedMatch);
-        FirestoreService.saveMatchToFirestore(updatedMatch, auth.currentUser?.uid);
+        const idx = state.matches.findIndex(m => m.id === action.payload.matchId);
+        if (idx === -1) return state;
+        const newInnings = [...state.matches[idx].innings] as [Inning, Inning];
+        newInnings[state.matches[idx].currentInningIndex] = { ...newInnings[state.matches[idx].currentInningIndex], isCompleted: true };
+        const updated = { ...state.matches[idx], innings: newInnings };
+        StorageService.saveMatch(updated);
         const updatedMatches = [...state.matches];
-        updatedMatches[matchIndex] = updatedMatch;
+        updatedMatches[idx] = updated;
         return { ...state, matches: updatedMatches };
     }
 
     case 'ALLOW_LONE_STRIKER': {
-        const matchIndex = state.matches.findIndex(m => m.id === state.activeMatchId);
-        if (matchIndex === -1) return state;
-        const match = state.matches[matchIndex];
-        const newInnings = [...match.innings] as [Inning, Inning];
-        newInnings[match.currentInningIndex] = { ...newInnings[match.currentInningIndex], loneStrikerMode: true };
-        const updatedMatch = { ...match, innings: newInnings };
-        StorageService.saveMatch(updatedMatch);
-        FirestoreService.saveMatchToFirestore(updatedMatch, auth.currentUser?.uid);
+        const idx = state.matches.findIndex(m => m.id === state.activeMatchId);
+        if (idx === -1) return state;
+        const newInnings = [...state.matches[idx].innings] as [Inning, Inning];
+        newInnings[state.matches[idx].currentInningIndex] = { ...newInnings[state.matches[idx].currentInningIndex], loneStrikerMode: true };
+        const updated = { ...state.matches[idx], innings: newInnings };
+        StorageService.saveMatch(updated);
         const updatedMatches = [...state.matches];
-        updatedMatches[matchIndex] = updatedMatch;
+        updatedMatches[idx] = updated;
         return { ...state, matches: updatedMatches };
     }
 
@@ -465,24 +469,18 @@ export const ScoringProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const loadAppData = async () => {
       let teams = StorageService.getTeams();
-      
-      if (user) {
-        const firestoreTeams = await FirestoreService.getUserTeams(user.uid);
-        if (firestoreTeams && firestoreTeams.length > 0) {
-          teams = firestoreTeams;
-          teams.forEach(t => StorageService.saveTeam(t));
-        }
-      }
-      
-      const matches = StorageService.getMatches() || [];
-      const tournaments = StorageService.getTournaments() || [];
-      const activeMatchId = StorageService.getActiveMatchId();
-      dispatch({ type: 'LOAD_DATA', payload: { teams, matches, tournaments, activeMatchId } });
+      // Logic for cloud fetch removed to ensure local-only mode
+      dispatch({ 
+        type: 'LOAD_DATA', 
+        payload: { 
+            teams: teams.filter(t => t && t.name && t.name.trim() !== ''), 
+            matches: StorageService.getMatches(), 
+            tournaments: StorageService.getTournaments(), 
+            activeMatchId: StorageService.getActiveMatchId() 
+        } 
+      });
     };
-
-    if (!loading) {
-        loadAppData();
-    }
+    if (!loading) loadAppData();
   }, [user, loading]);
 
   return (
@@ -494,8 +492,6 @@ export const ScoringProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 export const useScoring = () => {
   const context = useContext(ScoringContext);
-  if (context === undefined) {
-    throw new Error("useScoring must be used within ScoringProvider");
-  }
+  if (context === undefined) throw new Error("useScoring must be used within ScoringProvider");
   return context;
 };
