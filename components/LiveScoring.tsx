@@ -42,28 +42,28 @@ export const LiveScoring = () => {
 
   const inning = match ? match.innings[match.currentInningIndex] : undefined;
 
-  if (!match) return <div className="p-8 text-center text-gray-500 text-sm">Match not found</div>;
+  if (!match) return <div className="p-8 text-center text-white/50 text-sm">Match not found</div>;
   
   // COMPLETED GUARD
   if (match.status === 'COMPLETED') {
        return (
-           <div className="p-6 text-center bg-gray-50 min-h-screen flex flex-col items-center justify-center">
-               <div className="bg-white p-8 rounded-xl shadow-lg mb-4 max-w-sm w-full border-t-4 border-emerald-600 animate-pop">
-                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+           <div className="p-6 text-center h-full flex flex-col items-center justify-center">
+               <div className="glass-panel p-8 rounded-[2rem] mb-6 max-w-sm w-full border-t-4 border-emerald-500 animate-pop">
+                  <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
                       <CheckCircle size={32} />
                   </div>
-                  <h2 className="text-xl font-bold mb-1 text-gray-900">Match Completed</h2>
-                  <p className="text-sm text-emerald-700 font-bold mb-4">
-                      {match.abandonmentReason || (match.winnerTeamId ? `${match.teams.find(t=>t.id===match.winnerTeamId)?.name} Won!` : 'Match Finished')}
+                  <h2 className="text-xl font-black mb-1 text-white uppercase tracking-tight">Match Finished</h2>
+                  <p className="text-sm text-emerald-400 font-bold mb-4">
+                      {match.abandonmentReason || (match.winnerTeamId ? `${match.teams.find(t=>t.id===match.winnerTeamId)?.name} Won` : 'Match Tied')}
                   </p>
-                  <p className="text-gray-500 text-xs">Results locked.</p>
+                  <p className="text-white/40 text-xs">Scorecard is finalized.</p>
                </div>
-               <button onClick={() => navigate(`/summary/${match.id}`)} className="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-bold shadow hover:bg-emerald-700 text-sm">View Scorecard</button>
+               <button onClick={() => navigate(`/summary/${match.id}`)} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-emerald-900/40 hover:bg-emerald-500 transition-all text-sm">View Report</button>
            </div>
        );
   }
 
-  if (!inning) return <div className="p-8 text-center font-bold text-sm">Initializing...</div>;
+  if (!inning) return <div className="p-8 text-center font-bold text-sm text-white/60">Initializing...</div>;
 
   const battingTeam = match.teams.find(t => t.id === inning.battingTeamId);
   const bowlingTeam = match.teams.find(t => t.id === inning.bowlingTeamId);
@@ -76,6 +76,7 @@ export const LiveScoring = () => {
 
   const handleAbandonMatch = () => {
       if (endConfirmText.toUpperCase() !== 'CANCEL') return;
+      
       const inn1 = match.innings[0];
       const inn2 = match.innings[1];
       const rr1 = inn1.totalBalls > 0 ? (inn1.totalRuns / (inn1.totalBalls / 6)) : 0;
@@ -126,199 +127,230 @@ export const LiveScoring = () => {
   const winProb = targetValue > 0 ? GameLogic.calculateWinProbability(targetValue, inning.totalRuns, inning.totalBalls, inning.totalWickets, match.oversPerInning) : 50;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-3 pb-20 relative">
-      {celebration === 'FOUR' && <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center"><div className="bg-blue-600 text-white text-4xl font-black px-8 py-4 rounded-xl shadow-2xl animate-pop rotate-[-5deg]">4 RUNS!</div></div>}
-      {celebration === 'SIX' && <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center"><div className="bg-purple-600 text-white text-6xl font-black px-10 py-6 rounded-xl shadow-2xl animate-pop border-4 border-yellow-400">SIX!</div></div>}
-      {celebration === 'WICKET' && <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center flex-col gap-2"><div className="text-6xl animate-bounce">🦆</div><div className="bg-red-600 text-white text-4xl font-black px-8 py-4 rounded-xl shadow-2xl animate-pop">WICKET!</div></div>}
+    <div className="max-w-2xl mx-auto space-y-4 pb-20 relative">
+      {/* Celebration Overlays */}
+      {celebration === 'FOUR' && <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center backdrop-blur-sm"><div className="bg-blue-600 text-white text-5xl font-black px-12 py-6 rounded-2xl shadow-2xl animate-pop rotate-[-3deg] border-4 border-white/20">4 RUNS!</div></div>}
+      {celebration === 'SIX' && <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center backdrop-blur-sm"><div className="bg-purple-600 text-white text-7xl font-black px-14 py-8 rounded-3xl shadow-2xl animate-pop border-4 border-yellow-400 rotate-[3deg]">SIX!</div></div>}
+      {celebration === 'WICKET' && <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center flex-col gap-4 backdrop-blur-sm"><div className="text-8xl animate-bounce">☝️</div><div className="bg-red-600 text-white text-5xl font-black px-12 py-6 rounded-2xl shadow-2xl animate-pop border-4 border-white/20">WICKET!</div></div>}
 
-      <div className="bg-[#064e3b] text-white p-4 rounded-xl shadow-md border border-white/10">
-        <div className="flex justify-between items-center mb-2">
-            <button onClick={() => navigate('/')} className="text-emerald-300 hover:text-white flex items-center gap-1">
-                <ArrowLeft size={16}/> <span className="text-[10px] font-bold uppercase">Back</span>
+      {/* Score Header */}
+      <div className="glass-panel p-6 rounded-[2rem] shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl rounded-full"></div>
+        
+        <div className="flex justify-between items-center mb-4 relative z-10">
+            <button onClick={() => navigate('/')} className="text-white/60 hover:text-white flex items-center gap-1.5 transition-colors">
+                <ArrowLeft size={16}/> <span className="text-[10px] font-bold uppercase tracking-wider">Back</span>
             </button>
-            <div className="flex items-center gap-2">
-                <button onClick={() => setShowEndMatchModal(true)} className="p-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500 hover:text-white transition-colors"><Power size={12} /></button>
-                <div className="flex items-center gap-1 bg-emerald-800/50 px-2 py-0.5 rounded border border-emerald-700">
-                    <Share2 size={10} className="text-emerald-400"/>
-                    <span className="text-[10px] font-mono font-bold text-white select-all">{match.gameId || 'LIVE'}</span>
+            <div className="flex items-center gap-3">
+                <button onClick={() => setShowEndMatchModal(true)} className="p-1.5 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Power size={14} /></button>
+                <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                    <Share2 size={12} className="text-emerald-400"/>
+                    <span className="text-[10px] font-mono font-bold text-white/80 select-all tracking-wider">{match.gameId || 'LOCAL'}</span>
                 </div>
             </div>
         </div>
         
-        <div className="flex justify-between items-end">
+        <div className="flex justify-between items-end relative z-10">
              <div>
-                 <div className="text-3xl font-bold leading-none mb-1">{inning.totalRuns}/{inning.totalWickets}</div>
-                 <div className="text-emerald-300 text-xs font-medium">Over {GameLogic.getOversDisplay(inning.totalBalls)} <span className="mx-1 opacity-50">|</span> CRR: {GameLogic.calculateRunRate(inning.totalRuns, inning.totalBalls)}</div>
+                 <div className="text-5xl font-black leading-none mb-2 text-white tracking-tighter drop-shadow-lg">{inning.totalRuns}<span className="text-white/40 text-3xl mx-1">/</span>{inning.totalWickets}</div>
+                 <div className="text-emerald-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <span>Over {GameLogic.getOversDisplay(inning.totalBalls)}</span>
+                    <span className="w-1 h-1 bg-white/20 rounded-full"></span>
+                    <span>CRR {GameLogic.calculateRunRate(inning.totalRuns, inning.totalBalls)}</span>
+                 </div>
              </div>
              <div className="text-right">
-                 <div className="text-sm font-bold uppercase tracking-wider">{bowlingTeam.shortName}</div>
-                 <div className="text-[10px] text-emerald-300">Target: {match.currentInningIndex === 1 ? match.innings[0].totalRuns + 1 : '-'}</div>
+                 <div className="text-sm font-bold uppercase tracking-widest text-white/80 mb-1">{bowlingTeam.shortName}</div>
+                 <div className="text-[10px] text-white/40 font-mono border border-white/10 px-2 py-0.5 rounded bg-white/5">
+                    Target: {match.currentInningIndex === 1 ? match.innings[0].totalRuns + 1 : '-'}
+                 </div>
              </div>
         </div>
 
-        <div className="mt-3">
-          <div className="flex justify-between text-[8px] uppercase font-black tracking-widest mb-1 text-emerald-400">
+        {/* Win Probability Bar */}
+        <div className="mt-5 relative z-10">
+          <div className="flex justify-between text-[9px] uppercase font-black tracking-widest mb-1.5 text-white/40">
             <span>{battingTeam.shortName} {winProb}%</span>
             <span>{bowlingTeam.shortName} {100-winProb}%</span>
           </div>
-          <div className="w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden flex">
-            <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${winProb}%` }}></div>
-            <div className="h-full bg-slate-600 transition-all duration-1000 flex-1"></div>
+          <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden flex shadow-inner">
+            <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-all duration-1000" style={{ width: `${winProb}%` }}></div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden text-sm">
-         <div className="p-3 grid grid-cols-2 divide-x divide-gray-100">
-             <div className="pr-3">
+      {/* Players Card */}
+      <div className="glass-panel rounded-2xl overflow-hidden shadow-lg border-white/5">
+         <div className="p-4 grid grid-cols-2 divide-x divide-white/5">
+             <div className="pr-4">
                  <button disabled={isLocked} onClick={() => setBatsmenDismissed(false)} className={`w-full text-left transition-opacity ${needsBatsmen && !isLocked ? 'animate-pulse' : ''}`}>
                     {striker ? (
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-slate-900 truncate text-sm">{striker.name} ★</span>
-                            <span className="font-mono font-bold text-slate-800 text-sm">{strikerStats?.runs} <span className="text-[10px] text-slate-400 font-normal">({strikerStats?.balls})</span></span>
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="font-bold text-white truncate text-sm flex items-center gap-1">{striker.name} <span className="text-emerald-400 text-[10px]">★</span></span>
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                                <span className="font-mono font-bold text-white text-lg">{strikerStats?.runs}</span>
+                                <span className="text-[10px] text-white/40 font-medium">({strikerStats?.balls})</span>
+                            </div>
                         </div>
-                    ) : <div className="text-gray-400 italic text-xs">{isLocked ? '-' : 'Select Striker'}</div>}
+                    ) : <div className="text-white/30 italic text-xs py-2 border-2 border-dashed border-white/10 rounded-lg text-center hover:border-emerald-500/50 hover:text-emerald-400 transition-colors">{isLocked ? '-' : '+ Select Striker'}</div>}
                  </button>
              </div>
-             <div className="pl-3 opacity-70">
+             <div className="pl-4">
                  {nonStriker ? (
-                    <div className="flex justify-between items-center">
-                        <span className="font-medium text-slate-700 truncate text-sm">{nonStriker.name}</span>
-                        <span className="font-mono font-bold text-slate-700 text-sm">{nonStrikerStats?.runs} <span className="text-[10px] text-slate-400 font-normal">({nonStrikerStats?.balls})</span></span>
+                    <div className="opacity-60">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="font-medium text-white truncate text-sm">{nonStriker.name}</span>
+                        </div>
+                        <div className="flex items-baseline gap-1">
+                            <span className="font-mono font-bold text-white text-lg">{nonStrikerStats?.runs}</span>
+                            <span className="text-[10px] text-white/40 font-medium">({nonStrikerStats?.balls})</span>
+                        </div>
                     </div>
-                 ) : <div className="text-gray-400 italic text-xs">{inning.loneStrikerMode ? 'Lone Striker' : (isLocked ? '-' : 'Non-Striker')}</div>}
+                 ) : <div className="text-white/20 italic text-xs py-2 text-center">{inning.loneStrikerMode ? 'Lone Striker' : (isLocked ? '-' : 'Non-Striker')}</div>}
              </div>
          </div>
-         <button disabled={isLocked} onClick={() => setBowlerDismissed(false)} className={`w-full bg-slate-50 px-3 py-2 border-t border-gray-100 flex justify-between items-center text-xs ${needsBowler && !isLocked ? 'bg-blue-50 animate-pulse' : ''}`}>
-             <div className="font-medium text-slate-800">{bowler ? bowler.name : (isLocked ? '-' : 'Select Bowler')}</div>
-             <div className="font-mono font-bold text-slate-900">{bowlerStats?.wickets}-{bowlerStats?.runsConceded} <span className="text-[10px] text-slate-400 font-normal">({GameLogic.getOversDisplay(bowlerStats?.ballsBowled || 0)})</span></div>
+         <button disabled={isLocked} onClick={() => setBowlerDismissed(false)} className={`w-full bg-white/5 px-4 py-3 border-t border-white/5 flex justify-between items-center text-xs ${needsBowler && !isLocked ? 'bg-blue-500/20 animate-pulse' : 'hover:bg-white/10'} transition-colors`}>
+             <div className="font-medium text-white/90">{bowler ? bowler.name : (isLocked ? '-' : '+ Select Bowler')}</div>
+             <div className="font-mono font-bold text-white">{bowlerStats?.wickets}-{bowlerStats?.runsConceded} <span className="text-[10px] text-white/40 font-normal ml-1">({GameLogic.getOversDisplay(bowlerStats?.ballsBowled || 0)})</span></div>
          </button>
       </div>
 
-      <div className="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Over:</span>
+      {/* Timeline */}
+      <div className="flex items-center gap-2 overflow-x-auto py-2 no-scrollbar px-1">
+          <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider flex-shrink-0">Over:</span>
           {inning.thisOver.map((ball) => {
               const label = ball.isWicket ? 'W' : 
                    ball.extraType === 'WIDE' ? `w${ball.extras}` : 
                    ball.extraType === 'NO_BALL' ? `n${ball.runsScored+ball.extras}` : 
                    ball.runsScored;
-              return <div key={ball.id} className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black border flex-shrink-0 ${ball.isWicket ? 'bg-red-500 text-white border-red-600' : 'bg-white text-slate-700 border-slate-200'}`}>{label}</div>;
+              return <div key={ball.id} className={`
+                w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black border flex-shrink-0 shadow-lg
+                ${ball.isWicket ? 'bg-red-500 text-white border-red-400 shadow-red-900/50' : 
+                  ball.runsScored >= 4 ? 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white border-blue-400' :
+                  'bg-white/10 text-white border-white/10'}
+              `}>{label}</div>;
           })}
       </div>
 
+      {/* Controls */}
       <div className={`grid grid-cols-4 gap-2 ${isLocked ? 'opacity-30 pointer-events-none' : ''}`}>
           {[0, 1, 2, 3, 4, 6].map(run => (
-              <button key={run} onClick={() => submitBall({ runs: run, extras: 0, extraType: 'NONE', isWicket: false })} className="bg-white py-3 rounded-lg font-black text-slate-800 shadow-sm border border-b-2 border-gray-200 active:border-b active:translate-y-[1px] transition-all text-lg">{run}</button>
+              <button key={run} onClick={() => submitBall({ runs: run, extras: 0, extraType: 'NONE', isWicket: false })} className="bg-white/5 hover:bg-white/10 active:scale-95 py-4 rounded-xl font-black text-white shadow-lg border border-white/5 transition-all text-xl">{run}</button>
           ))}
-          <button onClick={() => setShowWideModal(true)} className="bg-[#fff9e6] py-3 rounded-lg font-black text-amber-800 border border-b-2 border-amber-200 text-sm">WD</button>
-          <button onClick={() => setShowNoBallModal(true)} className="bg-[#fff1e6] py-3 rounded-lg font-black text-orange-800 border border-b-2 border-orange-200 text-sm">NB</button>
+          <button onClick={() => setShowWideModal(true)} className="bg-amber-500/10 hover:bg-amber-500/20 py-4 rounded-xl font-black text-amber-400 border border-amber-500/20 text-xs uppercase tracking-wider">Wide</button>
+          <button onClick={() => setShowNoBallModal(true)} className="bg-orange-500/10 hover:bg-orange-500/20 py-4 rounded-xl font-black text-orange-400 border border-orange-500/20 text-xs uppercase tracking-wider">NB</button>
       </div>
       
-      <div className="grid grid-cols-3 gap-2 mt-1">
-          <button disabled={isLocked} onClick={() => { setWicketType('CAUGHT'); setShowWicketModal(true); }} className="bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-black border-b-2 border-red-800 uppercase tracking-widest text-sm disabled:opacity-50">OUT</button>
-          <button onClick={() => dispatch({ type: 'UNDO_LAST_BALL' })} disabled={state.undoStack.length === 0} className="bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-lg font-bold border-b-2 border-slate-300 disabled:opacity-50 flex items-center justify-center gap-2 transition-all text-sm"><RotateCcw size={14} /> Undo</button>
-          <button onClick={() => navigate(`/summary/${match.id}`)} className="bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg font-bold border-b-2 border-black text-sm">Scorecard</button>
+      <div className="grid grid-cols-3 gap-3 mt-2">
+          <button disabled={isLocked} onClick={() => { setWicketType('CAUGHT'); setShowWicketModal(true); }} className="bg-red-600 hover:bg-red-500 text-white py-4 rounded-xl font-black border border-red-400 shadow-lg shadow-red-900/40 uppercase tracking-widest text-sm disabled:opacity-50 transition-all active:scale-95">OUT</button>
+          <button onClick={() => dispatch({ type: 'UNDO_LAST_BALL' })} disabled={state.undoStack.length === 0} className="bg-white/5 hover:bg-white/10 text-white/70 py-4 rounded-xl font-bold border border-white/10 disabled:opacity-30 flex items-center justify-center gap-2 transition-all text-xs uppercase tracking-wide"><RotateCcw size={14} /> Undo</button>
+          <button onClick={() => navigate(`/summary/${match.id}`)} className="bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl font-bold border border-slate-600 text-xs uppercase tracking-wide">Report</button>
       </div>
 
+      {/* MODALS (Styled Dark) */}
+      
       {/* BATSMEN SELECTION MODAL */}
       {needsBatsmen && !isLocked && !isBatsmenDismissed && (
-        <div className="fixed inset-0 bg-black/60 z-[120] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" onClick={() => setBatsmenDismissed(true)}>
-            <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl animate-pop" onClick={e => e.stopPropagation()}>
-                <h3 className="text-lg font-black text-slate-900 mb-4">Select Batsmen</h3>
-                <div className="space-y-4 mb-6">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={() => setBatsmenDismissed(true)}>
+            <div className="glass-panel p-6 rounded-[2rem] w-full max-w-sm shadow-2xl animate-pop border-white/10" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-black text-white mb-6">Select Batsmen</h3>
+                <div className="space-y-4 mb-8">
                     {!inning.currentStrikerId && (
-                        <select className="w-full p-3 border border-slate-200 rounded-lg font-bold bg-slate-50 text-sm" value={selectedStriker} onChange={(e) => setSelectedStriker(e.target.value)}>
-                            <option value="">Choose Striker</option>
-                            {battingTeam.players.filter(p => !inning.battingStats[p.id]?.isOut && p.id !== selectedNonStriker && p.id !== inning.currentNonStrikerId).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        <select className="w-full p-4 border border-white/10 rounded-xl font-bold bg-white/5 text-white outline-none focus:ring-1 focus:ring-emerald-500 text-sm appearance-none" value={selectedStriker} onChange={(e) => setSelectedStriker(e.target.value)}>
+                            <option value="" className="bg-slate-900">Choose Striker</option>
+                            {battingTeam.players.filter(p => !inning.battingStats[p.id]?.isOut && p.id !== selectedNonStriker && p.id !== inning.currentNonStrikerId).map(p => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
                         </select>
                     )}
                     {!inning.currentNonStrikerId && !inning.loneStrikerMode && (
-                        <select className="w-full p-3 border border-slate-200 rounded-lg font-bold bg-slate-50 text-sm" value={selectedNonStriker} onChange={(e) => setSelectedNonStriker(e.target.value)}>
-                            <option value="">Choose Non-Striker</option>
-                            {battingTeam.players.filter(p => !inning.battingStats[p.id]?.isOut && p.id !== selectedStriker && p.id !== inning.currentStrikerId).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        <select className="w-full p-4 border border-white/10 rounded-xl font-bold bg-white/5 text-white outline-none focus:ring-1 focus:ring-emerald-500 text-sm appearance-none" value={selectedNonStriker} onChange={(e) => setSelectedNonStriker(e.target.value)}>
+                            <option value="" className="bg-slate-900">Choose Non-Striker</option>
+                            {battingTeam.players.filter(p => !inning.battingStats[p.id]?.isOut && p.id !== selectedStriker && p.id !== inning.currentStrikerId).map(p => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
                         </select>
                     )}
                 </div>
-                <button disabled={(!inning.currentStrikerId && !selectedStriker) || (!inning.currentNonStrikerId && !selectedNonStriker && !inning.loneStrikerMode)} onClick={() => { dispatch({ type: 'SET_BATSMEN', payload: { strikerId: inning.currentStrikerId || selectedStriker, nonStrikerId: inning.currentNonStrikerId || selectedNonStriker } }); }} className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold shadow hover:bg-emerald-700 text-sm">Start Batting</button>
+                <button disabled={(!inning.currentStrikerId && !selectedStriker) || (!inning.currentNonStrikerId && !selectedNonStriker && !inning.loneStrikerMode)} onClick={() => { dispatch({ type: 'SET_BATSMEN', payload: { strikerId: inning.currentStrikerId || selectedStriker, nonStrikerId: inning.currentNonStrikerId || selectedNonStriker } }); }} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-emerald-500 transition-all text-sm uppercase tracking-wider">Start Batting</button>
             </div>
         </div>
       )}
 
       {/* BOWLER SELECTION MODAL */}
       {needsBowler && !isLocked && !isBowlerDismissed && (
-        <div className="fixed inset-0 bg-black/60 z-[120] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" onClick={() => setBowlerDismissed(true)}>
-            <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl animate-pop" onClick={e => e.stopPropagation()}>
-                <h3 className="text-lg font-black text-slate-900 mb-4">Select Bowler</h3>
-                <select className="w-full p-3 border border-slate-200 rounded-lg font-bold bg-slate-50 mb-6 text-sm" value={selectedBowler} onChange={(e) => setSelectedBowler(e.target.value)}>
-                    <option value="">Choose Bowler</option>
-                    {bowlingTeam.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={() => setBowlerDismissed(true)}>
+            <div className="glass-panel p-6 rounded-[2rem] w-full max-w-sm shadow-2xl animate-pop border-white/10" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-black text-white mb-6">Select Bowler</h3>
+                <select className="w-full p-4 border border-white/10 rounded-xl font-bold bg-white/5 text-white mb-8 text-sm outline-none focus:ring-1 focus:ring-blue-500 appearance-none" value={selectedBowler} onChange={(e) => setSelectedBowler(e.target.value)}>
+                    <option value="" className="bg-slate-900">Choose Bowler</option>
+                    {bowlingTeam.players.map(p => <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>)}
                 </select>
-                <button disabled={!selectedBowler} onClick={() => { dispatch({ type: 'SET_BOWLER', payload: { bowlerId: selectedBowler } }); }} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700 text-sm">Confirm Bowler</button>
+                <button disabled={!selectedBowler} onClick={() => { dispatch({ type: 'SET_BOWLER', payload: { bowlerId: selectedBowler } }); }} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-blue-500 transition-all text-sm uppercase tracking-wider">Confirm Bowler</button>
             </div>
         </div>
       )}
 
-      {/* ABANDON/END MATCH MODAL */}
+      {/* END MATCH MODAL */}
       {showEndMatchModal && (
-          <div className="fixed inset-0 bg-black/70 z-[110] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowEndMatchModal(false)}>
-              <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl animate-pop text-center" onClick={e => e.stopPropagation()}>
-                  <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3"><AlertTriangle size={24} /></div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-1">End Match?</h3>
-                  <p className="text-slate-500 mb-6 text-xs">This action is permanent.</p>
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={() => setShowEndMatchModal(false)}>
+              <div className="glass-panel p-6 rounded-[2rem] w-full max-w-sm shadow-2xl animate-pop text-center border-t-4 border-red-500" onClick={e => e.stopPropagation()}>
+                  <div className="w-12 h-12 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30"><AlertTriangle size={24} /></div>
+                  <h3 className="text-lg font-bold text-white mb-1">End Match?</h3>
+                  <p className="text-white/50 mb-6 text-xs">This action cannot be undone.</p>
                   
                   <div className="space-y-4 mb-6 text-left">
                       <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">End Reason</label>
-                          <select className="w-full p-2.5 border border-slate-200 rounded-lg bg-white font-bold text-sm" value={endReason} onChange={e => setEndReason(e.target.value)}>
-                              <option>Rain</option><option>Bad Light</option><option>Manual Conclusion</option><option>Other</option>
+                          <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">End Reason</label>
+                          <select className="w-full p-3 border border-white/10 rounded-xl bg-white/5 text-white font-bold text-sm outline-none" value={endReason} onChange={e => setEndReason(e.target.value)}>
+                              <option className="bg-slate-900">Rain</option><option className="bg-slate-900">Bad Light</option><option className="bg-slate-900">Manual Conclusion</option><option className="bg-slate-900">Other</option>
                           </select>
                       </div>
                       <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Type 'CANCEL'</label>
-                          <input type="text" placeholder="CANCEL" className="w-full p-2.5 border border-slate-200 rounded-lg font-bold text-center text-sm" value={endConfirmText} onChange={e => setEndConfirmText(e.target.value)}/>
+                          <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">Type 'CANCEL'</label>
+                          <input type="text" placeholder="CANCEL" className="w-full p-3 border border-white/10 bg-white/5 text-white rounded-xl font-bold text-center text-sm outline-none focus:ring-1 focus:ring-red-500" value={endConfirmText} onChange={e => setEndConfirmText(e.target.value)}/>
                       </div>
                   </div>
 
-                  <button disabled={endConfirmText.toUpperCase() !== 'CANCEL'} onClick={handleAbandonMatch} className="w-full bg-red-600 text-white py-3 rounded-lg font-bold disabled:opacity-30 shadow hover:bg-red-700 text-sm">End Match</button>
-                  <button onClick={() => setShowEndMatchModal(false)} className="w-full py-2 text-slate-400 font-bold mt-2 text-xs hover:text-slate-600">Return</button>
+                  <button disabled={endConfirmText.toUpperCase() !== 'CANCEL'} onClick={handleAbandonMatch} className="w-full bg-red-600 text-white py-4 rounded-xl font-bold disabled:opacity-30 shadow-lg hover:bg-red-500 transition-all text-sm uppercase tracking-wider">End Match</button>
+                  <button onClick={() => setShowEndMatchModal(false)} className="w-full py-3 text-white/40 font-bold mt-2 text-xs hover:text-white transition-colors">Return</button>
               </div>
           </div>
       )}
 
       {/* WICKET MODAL */}
       {showWicketModal && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowWicketModal(false)}>
-            <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl animate-pop" onClick={e => e.stopPropagation()}>
-                <h3 className="font-bold text-slate-900 mb-4 uppercase tracking-wider text-center text-sm">Wicket Details</h3>
-                <div className="space-y-3 mb-6">
-                    <select className="w-full p-3 border border-slate-200 rounded-lg font-bold text-sm" value={wicketType} onChange={e => setWicketType(e.target.value as WicketType)}>
-                        <option value="BOWLED">Bowled</option><option value="CAUGHT">Caught</option><option value="LBW">LBW</option><option value="RUN_OUT">Run Out</option><option value="STUMPED">Stumped</option>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={() => setShowWicketModal(false)}>
+            <div className="glass-panel p-6 rounded-[2rem] w-full max-w-sm shadow-2xl animate-pop border-white/10" onClick={e => e.stopPropagation()}>
+                <h3 className="font-black text-white mb-6 uppercase tracking-widest text-center text-sm">Wicket Details</h3>
+                <div className="space-y-4 mb-8">
+                    <select className="w-full p-4 border border-white/10 bg-white/5 rounded-xl font-bold text-sm text-white outline-none focus:ring-1 focus:ring-red-500 appearance-none" value={wicketType} onChange={e => setWicketType(e.target.value as WicketType)}>
+                        <option value="BOWLED" className="bg-slate-900">Bowled</option><option value="CAUGHT" className="bg-slate-900">Caught</option><option value="LBW" className="bg-slate-900">LBW</option><option value="RUN_OUT" className="bg-slate-900">Run Out</option><option value="STUMPED" className="bg-slate-900">Stumped</option>
                     </select>
-                    <input type="text" placeholder="Fielder Name" className="w-full p-3 border border-slate-200 rounded-lg font-bold text-sm" value={fielderName} onChange={e => setFielderName(e.target.value)}/>
+                    <input type="text" placeholder="Fielder Name" className="w-full p-4 border border-white/10 bg-white/5 rounded-xl font-bold text-sm text-white outline-none focus:ring-1 focus:ring-red-500 placeholder-white/20" value={fielderName} onChange={e => setFielderName(e.target.value)}/>
                 </div>
-                <button onClick={() => submitBall({ runs: 0, extras: 0, extraType: 'NONE', isWicket: true, wicketType, wicketPlayerId: wicketType === 'RUN_OUT' ? wicketPlayerId : inning.currentStrikerId, fielderName })} className="w-full bg-red-600 text-white py-3 rounded-lg font-bold shadow uppercase tracking-wider text-sm">Confirm</button>
+                <button onClick={() => submitBall({ runs: 0, extras: 0, extraType: 'NONE', isWicket: true, wicketType, wicketPlayerId: wicketType === 'RUN_OUT' ? wicketPlayerId : inning.currentStrikerId, fielderName })} className="w-full bg-red-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-red-900/40 uppercase tracking-wider text-sm hover:bg-red-500 transition-all">Confirm Wicket</button>
             </div>
         </div>
       )}
 
-      {/* NO BALL & WIDE MODALS */}
+      {/* NO BALL MODAL */}
       {showNoBallModal && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowNoBallModal(false)}>
-            <div className="bg-white p-5 rounded-xl w-full max-w-xs shadow-2xl animate-pop" onClick={e => e.stopPropagation()}>
-                <h3 className="font-bold text-slate-900 mb-4 uppercase tracking-wider text-center text-xs">No Ball + Runs</h3>
-                <div className="grid grid-cols-3 gap-2">
-                    {[0,1,2,3,4,6].map(r => <button key={r} onClick={() => submitBall({ runs: r, extras: 1, extraType: 'NO_BALL', isWicket: false })} className="py-3 bg-slate-50 border border-slate-200 rounded-lg font-black text-sm hover:bg-slate-100">{r}</button>)}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={() => setShowNoBallModal(false)}>
+            <div className="glass-panel p-6 rounded-[2rem] w-full max-w-xs shadow-2xl animate-pop border-white/10" onClick={e => e.stopPropagation()}>
+                <h3 className="font-bold text-orange-400 mb-6 uppercase tracking-wider text-center text-xs">No Ball + Runs</h3>
+                <div className="grid grid-cols-3 gap-3">
+                    {[0,1,2,3,4,6].map(r => <button key={r} onClick={() => submitBall({ runs: r, extras: 1, extraType: 'NO_BALL', isWicket: false })} className="py-4 bg-white/5 border border-white/10 rounded-xl font-black text-sm hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all text-white">{r}</button>)}
                 </div>
             </div>
         </div>
       )}
 
+      {/* WIDE MODAL */}
       {showWideModal && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowWideModal(false)}>
-            <div className="bg-white p-5 rounded-xl w-full max-w-xs shadow-2xl animate-pop" onClick={e => e.stopPropagation()}>
-                <h3 className="font-bold text-slate-900 mb-4 uppercase tracking-wider text-center text-xs">Wide Extras</h3>
-                <div className="grid grid-cols-3 gap-2">
-                    {[1,2,3,4,5].map(r => <button key={r} onClick={() => submitBall({ runs: 0, extras: r, extraType: 'WIDE', isWicket: false })} className="py-3 bg-slate-50 border border-slate-200 rounded-lg font-black text-sm hover:bg-slate-100">{r}</button>)}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in" onClick={() => setShowWideModal(false)}>
+            <div className="glass-panel p-6 rounded-[2rem] w-full max-w-xs shadow-2xl animate-pop border-white/10" onClick={e => e.stopPropagation()}>
+                <h3 className="font-bold text-amber-400 mb-6 uppercase tracking-wider text-center text-xs">Wide Extras</h3>
+                <div className="grid grid-cols-3 gap-3">
+                    {[1,2,3,4,5].map(r => <button key={r} onClick={() => submitBall({ runs: 0, extras: r, extraType: 'WIDE', isWicket: false })} className="py-4 bg-white/5 border border-white/10 rounded-xl font-black text-sm hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all text-white">{r}</button>)}
                 </div>
             </div>
         </div>

@@ -109,8 +109,8 @@ export const TeamManagement = () => {
       
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-           <h2 className="text-2xl font-bold text-slate-800">Team Management</h2>
-           <p className="text-slate-500 text-xs mt-1">Organize your squads and players.</p>
+           <h2 className="text-2xl font-bold text-white">Team Management</h2>
+           <p className="text-white/60 text-xs mt-1">Organize your squads and players.</p>
         </div>
         {!isCreating && (
           <button 
@@ -118,7 +118,7 @@ export const TeamManagement = () => {
             onClick={() => {
                 if(checkPermission()) setCreating(true);
             }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 font-bold shadow-sm transition-all text-sm"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-emerald-900/20 transition-all text-sm"
           >
              <Plus size={18} /> 
              <span>Create Team</span>
@@ -127,88 +127,88 @@ export const TeamManagement = () => {
       </div>
 
       {isCreating ? (
-        <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden animate-pop">
-          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-             <h3 className="text-lg font-bold text-slate-800">{editingTeamId ? 'Edit Team' : 'New Team'}</h3>
-             <button onClick={cancelCreate} className="p-1 hover:bg-slate-200 rounded-full transition-colors"><X size={20} className="text-slate-500" /></button>
+        <div className="glass-panel rounded-[2rem] shadow-2xl border border-white/10 overflow-hidden animate-pop">
+          <div className="bg-white/5 px-6 py-4 border-b border-white/10 flex justify-between items-center">
+             <h3 className="text-lg font-bold text-white">{editingTeamId ? 'Edit Team' : 'New Team'}</h3>
+             <button onClick={cancelCreate} className="p-1 hover:bg-white/10 rounded-full transition-colors"><X size={20} className="text-white/60" /></button>
           </div>
           
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Team Name</label>
+                <label className="block text-xs font-bold text-white/40 uppercase mb-2">Team Name</label>
                 <input 
                     type="text" 
                     value={teamName}
                     onChange={e => setTeamName(e.target.value)}
                     placeholder="e.g. Royal Challengers"
-                    className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-medium text-sm"
+                    className="w-full bg-white/5 text-white border border-white/10 rounded-xl p-3 focus:ring-1 focus:ring-emerald-500 outline-none transition-all font-medium text-sm placeholder-white/20"
                 />
                 </div>
                 <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Code (3 chars)</label>
+                <label className="block text-xs font-bold text-white/40 uppercase mb-2">Code (3 chars)</label>
                 <input 
                     type="text" 
                     value={shortName}
                     onChange={e => setShortName(e.target.value.toUpperCase())}
                     maxLength={3}
                     placeholder="RCB"
-                    className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none uppercase font-mono font-bold tracking-widest text-sm"
+                    className="w-full bg-white/5 text-white border border-white/10 rounded-xl p-3 focus:ring-1 focus:ring-emerald-500 outline-none uppercase font-mono font-bold tracking-widest text-sm placeholder-white/20"
                 />
                 </div>
             </div>
 
             <div>
-                <h3 className="text-xs font-bold text-slate-500 uppercase mb-3">Squad List</h3>
+                <h3 className="text-xs font-bold text-white/40 uppercase mb-3">Squad List</h3>
                 <div className="flex gap-2 mb-4">
                     <input 
                         type="text" 
                         value={newPlayerName}
                         onChange={e => setNewPlayerName(e.target.value)}
                         placeholder="Player Name"
-                        className="flex-1 bg-white text-slate-900 border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        className="flex-1 bg-white/5 text-white border border-white/10 rounded-xl p-2.5 focus:ring-1 focus:ring-emerald-500 outline-none text-sm placeholder-white/20"
                         onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
                     />
                     <select 
                         value={newPlayerRole}
                         onChange={(e) => setNewPlayerRole(e.target.value as PlayerRole)}
-                        className="border border-slate-200 rounded-lg p-2.5 bg-white text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-bold"
+                        className="border border-white/10 rounded-xl p-2.5 bg-white/5 text-white focus:ring-1 focus:ring-emerald-500 outline-none text-xs font-bold appearance-none"
                     >
-                        <option value="BATSMAN">Batsman</option>
-                        <option value="BOWLER">Bowler</option>
-                        <option value="ALL_ROUNDER">All Rounder</option>
-                        <option value="WICKET_KEEPER">Wicket Keeper</option>
+                        <option value="BATSMAN" className="bg-slate-900">Batsman</option>
+                        <option value="BOWLER" className="bg-slate-900">Bowler</option>
+                        <option value="ALL_ROUNDER" className="bg-slate-900">All Rounder</option>
+                        <option value="WICKET_KEEPER" className="bg-slate-900">Wicket Keeper</option>
                     </select>
                     <button 
                         type="button"
                         onClick={addPlayer}
-                        className="bg-slate-800 text-white px-4 py-2.5 rounded-lg hover:bg-black font-bold text-xs uppercase"
+                        className="bg-white/10 text-white px-4 py-2.5 rounded-xl hover:bg-white/20 font-bold text-xs uppercase border border-white/10"
                     >
                         Add
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                 {(players || []).length === 0 ? (
-                    <div className="col-span-full py-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                        <p className="text-slate-400 text-sm italic">No players added.</p>
+                    <div className="col-span-full py-8 text-center bg-white/5 rounded-xl border border-dashed border-white/10">
+                        <p className="text-white/30 text-sm italic">No players added.</p>
                     </div>
                 ) : (
                     players.map(player => (
-                        <div key={player.id} className="flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-lg group">
+                        <div key={player.id} className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl group hover:bg-white/10 transition-colors">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-slate-400 border border-slate-100">
+                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 border border-white/5">
                                <User size={14} />
                             </div>
                             <div>
-                                <p className="font-bold text-slate-800 text-sm">{player.name}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">{player.role.replace('_', ' ')}</p>
+                                <p className="font-bold text-white text-sm">{player.name}</p>
+                                <p className="text-[10px] font-bold text-white/40 uppercase">{player.role.replace('_', ' ')}</p>
                             </div>
                         </div>
                         <button 
                             type="button"
                             onClick={() => removePlayer(player.id)} 
-                            className="text-slate-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-md transition-all"
+                            className="text-white/30 hover:text-red-400 p-1.5 hover:bg-red-500/10 rounded-lg transition-all"
                         >
                             <Trash2 size={16} />
                         </button>
@@ -218,12 +218,12 @@ export const TeamManagement = () => {
                 </div>
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+            <div className="flex justify-between items-center pt-4 border-t border-white/10">
                 {editingTeamId ? (
                     <button 
                         type="button"
                         onClick={() => handleDeleteClick(editingTeamId, teamName)}
-                        className="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg transition-all font-bold text-xs uppercase flex items-center gap-2"
+                        className="text-red-400 hover:bg-red-500/10 px-4 py-2 rounded-xl transition-all font-bold text-xs uppercase flex items-center gap-2"
                     >
                         <Trash2 size={14} /> Delete
                     </button>
@@ -235,16 +235,16 @@ export const TeamManagement = () => {
                     <button 
                     type="button"
                     onClick={cancelCreate}
-                    className="px-6 py-2.5 text-slate-500 hover:bg-slate-50 rounded-lg font-bold text-sm"
+                    className="px-6 py-2.5 text-white/60 hover:bg-white/10 rounded-xl font-bold text-sm transition-colors"
                     >
                     Cancel
                     </button>
                     <button 
                     type="button"
                     onClick={saveTeam}
-                    className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 shadow font-bold text-sm"
+                    className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 font-bold text-sm transition-all"
                     >
-                    {editingTeamId ? 'Update' : 'Save'}
+                    {editingTeamId ? 'Update Team' : 'Save Team'}
                     </button>
                 </div>
             </div>
@@ -254,28 +254,28 @@ export const TeamManagement = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div 
              onClick={() => { if(checkPermission()) setCreating(true); }}
-             className="bg-white border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/10 transition-all min-h-[160px]"
+             className="glass-card border-2 border-dashed border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all min-h-[160px] group"
           >
-             <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 mb-3">
+             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-white/40 mb-3 group-hover:text-emerald-400 transition-colors">
                 <Plus size={24} />
              </div>
-             <h3 className="text-sm font-bold text-slate-700">Add Team</h3>
+             <h3 className="text-sm font-bold text-white/60 group-hover:text-white transition-colors">Add Team</h3>
           </div>
 
           {(state.teams || []).map((team, index) => {
             const colors = [
-              'bg-blue-100 text-blue-700', 
-              'bg-purple-100 text-purple-700', 
-              'bg-orange-100 text-orange-700', 
-              'bg-rose-100 text-rose-700'  
+              'text-blue-400 ring-blue-500/30', 
+              'text-purple-400 ring-purple-500/30', 
+              'text-orange-400 ring-orange-500/30', 
+              'text-rose-400 ring-rose-500/30'  
             ];
             const colorClass = colors[index % colors.length];
             
             return (
-              <div key={team.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative group hover:shadow-md transition-shadow">
+              <div key={team.id} className="glass-card rounded-2xl p-5 relative group hover:bg-white/5 transition-all border-white/5">
                 
                 <div className="flex justify-between items-start mb-4">
-                  <div className={`w-12 h-12 rounded-lg ${colorClass} flex items-center justify-center text-sm font-black`}>
+                  <div className={`w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-sm font-black ring-1 ring-inset ${colorClass}`}>
                     {team.shortName || (team.name?.substring(0, 3) || '???').toUpperCase()}
                   </div>
                   
@@ -285,7 +285,7 @@ export const TeamManagement = () => {
                             <button 
                                 type="button"
                                 onClick={(e) => handleEdit(e, team)}
-                                className="w-8 h-8 text-slate-400 hover:bg-slate-100 hover:text-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                                className="w-8 h-8 text-white/30 hover:bg-white/10 hover:text-blue-400 rounded-lg flex items-center justify-center transition-colors"
                             >
                                 <Edit2 size={14} />
                             </button>
@@ -295,13 +295,13 @@ export const TeamManagement = () => {
                                     e.stopPropagation();
                                     handleDeleteClick(team.id, team.name);
                                 }}
-                                className="w-8 h-8 text-slate-400 hover:bg-slate-100 hover:text-red-600 rounded-lg flex items-center justify-center transition-colors"
+                                className="w-8 h-8 text-white/30 hover:bg-white/10 hover:text-red-400 rounded-lg flex items-center justify-center transition-colors"
                             >
                                 <Trash2 size={14} />
                             </button>
                           </>
                       ) : (
-                          <div className="w-8 h-8 text-slate-300 flex items-center justify-center">
+                          <div className="w-8 h-8 text-white/20 flex items-center justify-center">
                               <Lock size={14} />
                           </div>
                       )}
@@ -309,10 +309,10 @@ export const TeamManagement = () => {
                 </div>
 
                 <div>
-                    <h3 className="text-lg font-bold text-slate-800 truncate mb-1">
+                    <h3 className="text-lg font-bold text-white truncate mb-1">
                         {team.name || 'Unnamed Team'}
                     </h3>
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider">
                         {(team.players || []).length} Players
                     </p>
                 </div>
@@ -323,26 +323,26 @@ export const TeamManagement = () => {
       )}
 
       {deleteModal.show && (
-        <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm animate-pop p-6 text-center">
-                <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+            <div className="glass-panel rounded-2xl shadow-2xl w-full max-w-sm animate-pop p-6 text-center border-t-4 border-red-500">
+                <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 ring-1 ring-red-500/40">
                     <Trash2 size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Team?</h3>
-                <p className="text-slate-500 text-sm mb-6">
-                    Permanently remove <span className="font-bold text-slate-800">"{deleteModal.teamName}"</span>?
+                <h3 className="text-xl font-bold text-white mb-2">Delete Team?</h3>
+                <p className="text-white/60 text-sm mb-6">
+                    Permanently remove <span className="font-bold text-white">"{deleteModal.teamName}"</span>?
                 </p>
                 
                 <div className="flex gap-3">
                     <button 
                         onClick={() => setDeleteModal({ show: false, teamId: null, teamName: '' })}
-                        className="flex-1 py-3 text-slate-500 font-bold bg-slate-50 hover:bg-slate-100 rounded-lg text-xs uppercase"
+                        className="flex-1 py-3 text-white/60 font-bold bg-white/5 hover:bg-white/10 rounded-xl text-xs uppercase transition-colors"
                     >
                         Cancel
                     </button>
                     <button 
                         onClick={confirmDelete}
-                        className="flex-1 py-3 text-white font-bold bg-red-600 hover:bg-red-700 rounded-lg shadow text-xs uppercase"
+                        className="flex-1 py-3 text-white font-bold bg-red-600 hover:bg-red-500 rounded-xl shadow-lg shadow-red-900/40 text-xs uppercase transition-all"
                     >
                         Delete
                     </button>
